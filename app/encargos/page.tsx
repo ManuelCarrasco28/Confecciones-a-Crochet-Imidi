@@ -12,18 +12,22 @@ import { createClient } from '@/lib/supabase/client';
 import { ShoppingBag, Trash2, Plus, Minus, MessageCircle, ArrowLeft, ShieldCheck, Heart } from 'lucide-react';
 
 export default function EncargosPage() {
-  const [cart, setCart] = useState<CartItem[]>(() => {
-    if (typeof window === 'undefined') return [];
-    try {
-      const saved = localStorage.getItem('imidi_cart');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
-
+  const [cart, setCart] = useState<CartItem[]>([]);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [user, setUser] = useState<UserAccount | null>(null);
+
+  // Cargar carrito de localStorage en cliente (evita mismatch de hidratación SSR)
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('imidi_cart');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setTimeout(() => setCart(parsed), 0);
+      }
+    } catch {
+      // Ignorar
+    }
+  }, []);
 
   // Sync Auth
   useEffect(() => {

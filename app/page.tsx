@@ -7,7 +7,6 @@ import { Hero } from '@/components/Hero';
 import { ProductCard } from '@/components/ProductCard';
 import { ProductModal } from '@/components/ProductModal';
 import { CartDrawer } from '@/components/CartDrawer';
-import { TestimonialsSection } from '@/components/TestimonialsSection';
 import { Footer } from '@/components/Footer';
 import { AuthModal } from '@/components/AuthModal';
 import { Toast } from '@/components/Toast';
@@ -154,13 +153,6 @@ export default function HomePage() {
     });
   }, [availableProducts, carouselIndex]);
 
-  const activeMobileProduct = availableProducts.length > 0
-    ? availableProducts[carouselIndex % availableProducts.length]
-    : null;
-  const activeMobilePosition = availableProducts.length > 0
-    ? (carouselIndex % availableProducts.length) + 1
-    : 0;
-
   // Guardar carrito
   useEffect(() => {
     try {
@@ -275,97 +267,66 @@ export default function HomePage() {
         >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
             
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-8">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mb-6">
               <div>
-                <div className="inline-flex items-center space-x-2 bg-white border border-[#C4D8D9] px-3.5 py-1 rounded-full text-xs font-bold text-[#437579] shadow-sm mb-2">
-                  <Award className="w-4 h-4 text-[#D89B53]" />
+                <div className="inline-flex items-center space-x-2 bg-white border border-[#C4D8D9] px-3 sm:px-4 py-1 rounded-full text-[10px] sm:text-xs font-bold text-[#437579] shadow-sm mb-1.5">
+                  <Award className="w-3.5 h-3.5 text-[#D89B53]" />
                   <span>Catálogo Animado & Continuo</span>
                 </div>
-                <h2 className="font-serif text-2xl sm:text-3xl font-bold text-[#213B3E]">
+                <h2 className="font-serif text-xl sm:text-3xl font-bold text-[#213B3E]">
                   Prendas & Diseños Destacados
                 </h2>
               </div>
 
               <Link
                 href="/catalogo"
-                className="inline-flex items-center space-x-2 bg-[#437579] hover:bg-[#335C60] text-white font-bold text-xs px-5 py-3 rounded-2xl shadow-md transition-all uppercase tracking-wider"
+                className="inline-flex items-center space-x-2 bg-[#437579] hover:bg-[#335C60] text-white font-bold text-xs px-4 sm:px-5 py-2.5 sm:py-3 rounded-2xl shadow-md transition-all uppercase tracking-wider"
               >
                 <span>Ver Todo el Catálogo</span>
-                <ArrowRight className="w-4 h-4" />
+                <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </Link>
             </div>
 
             {/* Pista del Carrusel Cíclico Infinito con Botones Flotantes Laterales */}
-            <div className="relative group px-2 sm:px-0">
+            <div className="relative group px-1 sm:px-0">
               
               {/* Botón Flotante Lateral Izquierda (Atrás) */}
               <button
                 onClick={prevSlide}
-                className="hidden sm:flex absolute sm:-left-6 top-1/2 -translate-y-1/2 z-20 sm:w-12 sm:h-12 rounded-full sm:bg-white text-[#437579] border-2 border-[#437579] shadow-xl hover:scale-110 hover:bg-[#437579] hover:text-white items-center justify-center transition-all"
+                className="flex absolute -left-2 sm:-left-6 top-1/2 -translate-y-1/2 z-20 w-8 h-8 sm:w-12 sm:h-12 rounded-full bg-white/95 text-[#437579] border border-sm:border-2 border-[#437579] shadow-lg hover:scale-110 hover:bg-[#437579] hover:text-white items-center justify-center transition-all"
                 aria-label="Flecha Atrás"
                 title="Atrás"
               >
-                <ChevronLeft className="w-5 h-5 sm:w-7 sm:h-7 stroke-[2.5]" />
+                <ChevronLeft className="w-4 h-4 sm:w-7 sm:h-7 stroke-[2.5]" />
               </button>
 
               {/* Botón Flotante Lateral Derecha (Adelante) */}
               <button
                 onClick={nextSlide}
-                className="hidden sm:flex absolute sm:-right-6 top-1/2 -translate-y-1/2 z-20 sm:w-12 sm:h-12 rounded-full sm:bg-[#437579] text-white border-2 border-[#437579] shadow-xl hover:scale-110 hover:bg-[#335C60] items-center justify-center transition-all"
+                className="flex absolute -right-2 sm:-right-6 top-1/2 -translate-y-1/2 z-20 w-8 h-8 sm:w-12 sm:h-12 rounded-full bg-[#437579] text-white border border-sm:border-2 border-[#437579] shadow-lg hover:scale-110 hover:bg-[#335C60] items-center justify-center transition-all"
                 aria-label="Flecha Adelante"
                 title="Adelante"
               >
-                <ChevronRight className="w-5 h-5 sm:w-7 sm:h-7 stroke-[2.5]" />
+                <ChevronRight className="w-4 h-4 sm:w-7 sm:h-7 stroke-[2.5]" />
               </button>
 
-              {/* Grilla Cíclica de Productos Continuos */}
-              {activeMobileProduct && (
-                <div className="sm:hidden space-y-4">
-                  <div className="flex items-center justify-center gap-3">
-                    <button
-                      onClick={prevSlide}
-                      className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-white text-[#437579] border-2 border-[#437579] shadow-md active:scale-95 transition-all"
-                      aria-label="Prenda anterior"
-                      title="AtrÃ¡s"
-                    >
-                      <ChevronLeft className="w-5 h-5 stroke-[2.5]" />
-                    </button>
-                    <span className="min-w-20 text-center text-[11px] font-bold text-[#597477]">
-                      {activeMobilePosition} / {availableProducts.length}
-                    </span>
-                    <button
-                      onClick={nextSlide}
-                      className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-[#437579] text-white border-2 border-[#437579] shadow-md active:scale-95 transition-all"
-                      aria-label="Siguiente prenda"
-                      title="Adelante"
-                    >
-                      <ChevronRight className="w-5 h-5 stroke-[2.5]" />
-                    </button>
+              {/* Grilla Cíclica de Productos (2 columnas en móvil / 4 columnas en desktop) */}
+              <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-6 py-2 px-1 transition-all duration-500">
+                {visibleProducts.slice(0, 4).map((prod, idx) => (
+                  <div key={`${prod.id}-${idx}`} className={idx >= 2 ? 'hidden sm:block' : 'block'}>
+                    <ProductCard
+                      product={prod}
+                      onOpenModal={(product) => setSelectedProduct(product)}
+                      onAddToCart={(product) => handleAddToCart(product)}
+                    />
                   </div>
-
-                  <ProductCard
-                    product={activeMobileProduct}
-                    onOpenModal={(product) => setSelectedProduct(product)}
-                    onAddToCart={(product) => handleAddToCart(product)}
-                  />
-                </div>
-              )}
-
-              <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 py-2 px-1 transition-all duration-500">
-                {visibleProducts.map((prod, idx) => (
-                  <ProductCard
-                    key={`${prod.id}-${idx}`}
-                    product={prod}
-                    onOpenModal={(product) => setSelectedProduct(product)}
-                    onAddToCart={(product) => handleAddToCart(product)}
-                  />
                 ))}
               </div>
             </div>
 
             {/* Indicadores de Puntos (Dots) Cíclicos */}
             {products.length > 1 && (
-              <div className="flex justify-center items-center space-x-1.5 sm:space-x-2 mt-6 sm:mt-8 overflow-x-auto max-w-full py-1">
+              <div className="flex justify-center items-center space-x-1.5 sm:space-x-2 mt-4 sm:mt-8 overflow-x-auto max-w-full py-1">
                 {products.map((_, idx) => (
                   <button
                     key={idx}
@@ -389,9 +350,6 @@ export default function HomePage() {
             </div>
           </div>
         </section>
-
-        {/* Testimonios y Garantía de Calidad */}
-        <TestimonialsSection />
       </main>
 
       {/* Pie de Página */}

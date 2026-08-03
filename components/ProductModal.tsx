@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
-import { X, ShoppingBag, Check, Heart } from 'lucide-react';
-import { Product, YARN_OPTIONS } from '@/lib/types';
+import React, { useState, useEffect } from 'react';
+import { X, ShoppingBag, Check } from 'lucide-react';
+import { Product } from '@/lib/types';
 import { formatCurrency } from '@/lib/utils';
+import { getStoredAttributes, StoreAttributes } from '@/lib/attributes';
 
 interface ProductModalProps {
   product: Product | null;
@@ -18,15 +19,22 @@ interface ProductModalProps {
 }
 
 export function ProductModal({ product, onClose, onAddToCart }: ProductModalProps) {
-  const [prevProductId, setPrevProductId] = useState<string | null>(null);
-  const availableYarns = product?.yarnTypes && product.yarnTypes.length > 0 ? product.yarnTypes : YARN_OPTIONS;
+  const [storeAttrs, setStoreAttrs] = useState<StoreAttributes>(getStoredAttributes);
 
-  const [selectedYarn, setSelectedYarn] = useState<string>(availableYarns[0]);
+  useEffect(() => {
+    const handleUpdate = () => setStoreAttrs(getStoredAttributes());
+    window.addEventListener('imidi_attributes_updated', handleUpdate);
+    return () => window.removeEventListener('imidi_attributes_updated', handleUpdate);
+  }, []);
+
+  const [prevProductId, setPrevProductId] = useState<string | null>(null);
+
+  const [selectedYarn, setSelectedYarn] = useState<string>(storeAttrs.yarns[0] || 'Algodón');
   const [selectedColor, setSelectedColor] = useState<string>(
-    product?.colors && product.colors.length > 0 ? product.colors[0] : 'Turquesa Imidi (Original)'
+    product?.colors && product.colors.length > 0 ? product.colors[0] : (storeAttrs.colors[0] || 'Rosa Pastel')
   );
   const [selectedSize, setSelectedSize] = useState<string>(
-    product?.sizes && product.sizes.length > 0 ? product.sizes[0] : 'M'
+    product?.sizes && product.sizes.length > 0 ? product.sizes[0] : (storeAttrs.sizes[0] || 'M')
   );
   const [customNotes, setCustomNotes] = useState<string>('');
   const [addedSuccess, setAddedSuccess] = useState<boolean>(false);
@@ -34,10 +42,9 @@ export function ProductModal({ product, onClose, onAddToCart }: ProductModalProp
   // Patrón recomendado por React para reiniciar estado derivado al cambiar de prop
   if (product && product.id !== prevProductId) {
     setPrevProductId(product.id);
-    const yarns = product.yarnTypes && product.yarnTypes.length > 0 ? product.yarnTypes : YARN_OPTIONS;
-    setSelectedYarn(yarns[0]);
-    setSelectedColor(product.colors && product.colors.length > 0 ? product.colors[0] : 'Turquesa Imidi (Original)');
-    setSelectedSize(product.sizes && product.sizes.length > 0 ? product.sizes[0] : 'M');
+    setSelectedYarn(storeAttrs.yarns[0] || 'Algodón');
+    setSelectedColor(product.colors && product.colors.length > 0 ? product.colors[0] : (storeAttrs.colors[0] || 'Rosa Pastel'));
+    setSelectedSize(product.sizes && product.sizes.length > 0 ? product.sizes[0] : (storeAttrs.sizes[0] || 'M'));
     setCustomNotes('');
     setAddedSuccess(false);
   }
@@ -45,67 +52,52 @@ export function ProductModal({ product, onClose, onAddToCart }: ProductModalProp
   if (!product) return null;
 
   const handleAdd = () => {
-    onAddToCart(product, selectedSize, selectedColor, customNotes.trim(), selectedYarn);
+    onAddToCart(product, selectedSize, selectedColor, customNotes, selectedYarn);
     setAddedSuccess(true);
     setTimeout(() => {
       setAddedSuccess(false);
       onClose();
-    }, 900);
+    }, 1200);
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 overflow-y-auto bg-stone-900/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4"
-      onClick={onClose}
-    >
-      <div
-        className="relative bg-white border-t sm:border border-[#C4D8D9] rounded-t-3xl sm:rounded-3xl w-full sm:max-w-2xl overflow-hidden shadow-2xl animate-in fade-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200 text-[#213B3E] max-h-[95dvh] sm:max-h-[90vh] flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Botón Cerrar */}
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white w-full max-w-2xl rounded-2xl sm:rounded-3xl shadow-2xl border border-[#C4D8D9] overflow-hidden flex flex-col max-h-[92vh] relative">
+        
+        {/* Botón de Cierre con animación */}
         <button
           onClick={onClose}
-          className="absolute top-3 right-3 sm:top-4 sm:right-4 z-10 p-2 rounded-full bg-white/90 hover:bg-white text-[#213B3E] transition-colors shadow-md border border-[#C4D8D9]"
+          className="absolute top-3 right-3 sm:top-4 sm:right-4 z-20 bg-white/80 hover:bg-rose-50 text-[#213B3E] hover:text-rose-600 p-2 rounded-full border border-[#C4D8D9] shadow-md transition-all hover:scale-105"
+          aria-label="Cerrar modal"
         >
           <X className="w-5 h-5" />
         </button>
 
-        <div className="flex flex-col sm:grid sm:grid-cols-2 overflow-y-auto flex-1">
+        {/* Scrollable Modal Body */}
+        <div className="overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
           
-          {/* Imagen del Producto */}
-          <div className="relative h-[35vh] sm:h-auto sm:aspect-auto bg-[#F8F5EF] overflow-hidden shrink-0">
-            <img
-              src={product.imageUrl}
-              alt={product.name}
-              className="w-full h-full object-cover object-center"
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 items-start">
             
-            {/* Aviso de Modelo Confeccionado a Pedido */}
-            <div className="absolute top-3 sm:top-4 left-3 sm:left-4 bg-white/95 backdrop-blur-md px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full border border-[#C4D8D9] shadow-md flex items-center gap-1 sm:gap-1.5">
-              <Heart className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-[#D97B84] fill-[#D97B84]" />
-              <span className="text-[9px] sm:text-[10px] font-extrabold text-[#437579] uppercase tracking-wider">
-                Tejido a Pedido
-              </span>
+            {/* Contenedor Imagen del Producto */}
+            <div className="relative aspect-[4/5] rounded-2xl overflow-hidden bg-[#F2F7F7] border border-[#C4D8D9] shadow-inner group">
+              <img
+                src={product.imageUrl}
+                alt={product.name}
+                className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
+              />
+              <div className="absolute top-3 left-3 bg-[#437579] text-white text-[10px] sm:text-xs font-bold px-3 py-1 rounded-full shadow-md">
+                Prenda Artesanal
+              </div>
             </div>
 
-            {!product.inStock && (
-              <div className="absolute inset-0 bg-stone-900/50 backdrop-blur-[2px] flex items-center justify-center">
-                <span className="bg-rose-600 text-white font-bold text-xs uppercase px-4 py-2 rounded-full shadow-lg">
-                  Bajo Encargo / Agotado
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* Información y Opciones de Confección */}
-          <div className="p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-5 flex flex-col justify-between overflow-y-auto">
-            
-            <div className="space-y-3 sm:space-y-4">
+            {/* Detalles & Configuraciones de Confección */}
+            <div className="space-y-3.5 sm:space-y-4 flex flex-col justify-between">
+              
               <div>
-                <span className="text-[10px] sm:text-[11px] font-bold text-[#437579] uppercase tracking-wider bg-[#E2ECEC] px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full border border-[#437579]/20">
-                  {product.category}
+                <span className="text-[10px] sm:text-xs font-extrabold text-[#D97B84] tracking-wider uppercase block mb-1">
+                  Categoría: {product.category}
                 </span>
-                <h2 className="font-serif text-xl sm:text-2xl font-bold text-[#213B3E] mt-2 leading-tight">
+                <h2 className="font-serif text-xl sm:text-2xl font-bold text-[#213B3E]">
                   {product.name}
                 </h2>
                 <div className="text-xl sm:text-2xl font-bold text-[#437579] mt-1">
@@ -113,27 +105,13 @@ export function ProductModal({ product, onClose, onAddToCart }: ProductModalProp
                 </div>
               </div>
 
-              {/* Banner Informativo del Modelo a Pedido */}
-              <div className="bg-[#F8F5EF] border border-[#C4D8D9] p-2.5 sm:p-3 rounded-xl sm:rounded-2xl text-[10px] sm:text-[11px] text-[#3E5C60] space-y-1">
-                <p className="font-bold text-[#437579] flex items-center gap-1">
-                  <span>🧶 Modelo para Confección a Mano</span>
-                </p>
-                <p className="text-[9px] sm:text-[10px] text-[#597477]">
-                  Este producto es un diseño de muestra. Al realizar tu pedido, nuestras artesanas comenzarán el tejido a mano en la talla, hilo y color elegidos.
-                </p>
-              </div>
-
-              <p className="text-[11px] sm:text-xs text-[#597477] leading-relaxed">
-                {product.description}
-              </p>
-
               {/* Selector de Tipo de Hilo */}
               <div className="space-y-1.5">
                 <label className="block text-[11px] sm:text-xs font-bold text-[#213B3E]">
                   Tipo de Hilo Preferido:
                 </label>
                 <div className="grid grid-cols-2 gap-1.5 text-[11px] sm:text-xs">
-                  {availableYarns.map((yarn) => (
+                  {storeAttrs.yarns.map((yarn) => (
                     <button
                       key={yarn}
                       type="button"
@@ -160,7 +138,7 @@ export function ProductModal({ product, onClose, onAddToCart }: ProductModalProp
                   onChange={(e) => setSelectedColor(e.target.value)}
                   className="w-full bg-[#F8F5EF] border border-[#C4D8D9] rounded-xl px-3 py-2.5 text-xs font-semibold text-[#213B3E] focus:outline-none focus:border-[#437579]"
                 >
-                  {product.colors.map((col) => (
+                  {storeAttrs.colors.map((col) => (
                     <option key={col} value={col}>
                       🎨 {col}
                     </option>
@@ -169,29 +147,27 @@ export function ProductModal({ product, onClose, onAddToCart }: ProductModalProp
               </div>
 
               {/* Selector de Talla */}
-              {product.sizes && product.sizes.length > 0 && (
-                <div className="space-y-1.5">
-                  <label className="block text-[11px] sm:text-xs font-bold text-[#213B3E]">
-                    Talla o Dimensión:
-                  </label>
-                  <div className="flex flex-wrap gap-1.5">
-                    {product.sizes.map((size) => (
-                      <button
-                        key={size}
-                        type="button"
-                        onClick={() => setSelectedSize(size)}
-                        className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all ${
-                          selectedSize === size
-                            ? 'border-[#437579] bg-[#437579] text-white shadow-sm'
-                            : 'border-[#C4D8D9] bg-white text-[#597477] hover:border-[#437579]'
-                        }`}
-                      >
-                        {size}
-                      </button>
-                    ))}
-                  </div>
+              <div className="space-y-1.5">
+                <label className="block text-[11px] sm:text-xs font-bold text-[#213B3E]">
+                  Talla o Dimensión:
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {storeAttrs.sizes.map((size) => (
+                    <button
+                      key={size}
+                      type="button"
+                      onClick={() => setSelectedSize(size)}
+                      className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all ${
+                        selectedSize === size
+                          ? 'border-[#437579] bg-[#437579] text-white shadow-sm'
+                          : 'border-[#C4D8D9] bg-white text-[#597477] hover:border-[#437579]'
+                      }`}
+                    >
+                      {size}
+                    </button>
+                  ))}
                 </div>
-              )}
+              </div>
 
               {/* Notas de Ajustes Personalizados */}
               <div className="space-y-1">

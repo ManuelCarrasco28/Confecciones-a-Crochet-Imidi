@@ -27,6 +27,8 @@ export const COLOR_OPTIONS = [
   'Combinado Personalizado (Todos los colores)'
 ];
 
+export const SIZE_OPTIONS = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'A Medida'];
+
 export interface UserAccount {
   id?: string;
   name: string;

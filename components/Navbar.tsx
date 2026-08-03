@@ -71,11 +71,13 @@ export function Navbar({
                 className="w-full h-full object-cover"
               />
             </div>
-            <div className="shrink-0">
-              <h1 className="font-serif text-sm sm:text-lg font-bold tracking-tight text-[#213B3E] leading-tight">
-                <span className="hidden xs:inline">Confecciones </span>
-                <span className="text-[#437579]">Imidi</span>
-              </h1>
+            <div className="shrink-0 flex flex-col justify-center">
+              <span className="font-serif text-base sm:text-xl font-bold tracking-tight text-[#213B3E] leading-none">
+                Confecciones <span className="text-[#437579]">Imidi</span>
+              </span>
+              <span className="text-[9px] sm:text-[10px] font-extrabold text-[#D97B84] tracking-widest uppercase mt-0.5">
+                Crochet & Costura
+              </span>
             </div>
           </Link>
 
@@ -226,9 +228,11 @@ export function Navbar({
               href={`https://wa.me/${STORE_WHATSAPP_NUMBER}?text=${encodeURIComponent('¡Hola Confecciones a Crochet Imidi! Quisiera consultar disponibilidad y hacer un pedido.')}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center space-x-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-2.5 sm:px-3.5 py-2 sm:py-2.5 rounded-full shadow-md transition-all whitespace-nowrap"
+              className="inline-flex items-center justify-center space-x-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs p-2 sm:px-3.5 sm:py-2.5 rounded-full shadow-md transition-all whitespace-nowrap"
+              aria-label="WhatsApp Directo"
+              title="Escribir por WhatsApp"
             >
-              <MessageCircle className="w-4 h-4" />
+              <MessageCircle className="w-4 h-4 shrink-0" />
               <span className="hidden sm:inline">WhatsApp</span>
             </a>
 

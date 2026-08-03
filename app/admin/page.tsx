@@ -29,11 +29,13 @@ import {
   Save,
   RotateCcw,
   Menu,
+  Tag,
 } from 'lucide-react';
 import { Product, YARN_OPTIONS, COLOR_OPTIONS, CategoryType, UserAccount, CustomOrderRow } from '@/lib/types';
 import { INITIAL_PRODUCTS } from '@/lib/mockData';
 import { formatCurrency } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
+import { AdminAttributesModule } from '@/components/AdminAttributesModule';
 
 type NewUserForm = {
   name: string;
@@ -69,7 +71,7 @@ export default function AdminPage() {
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
 
   const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'productos' | 'categorias' | 'pedidos' | 'solicitudes' | 'clientes' | 'usuarios' | 'config'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'productos' | 'categorias' | 'atributos' | 'pedidos' | 'solicitudes' | 'clientes' | 'usuarios' | 'config'>('dashboard');
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter] = useState<string>('todas');
 
@@ -135,11 +137,11 @@ export default function AdminPage() {
       try {
         const supabase = createClient();
         const { data: { session } } = await supabase.auth.getSession();
-        
+
         if (session?.user) {
           const userEmail = session.user.email?.toLowerCase() || '';
           const userMetaRole = session.user.user_metadata?.role;
-          
+
           const isUserAdmin = userEmail === 'josemanuelcarrascomillan@gmail.com' || userMetaRole === 'admin';
 
           if (isUserAdmin) {
@@ -688,7 +690,7 @@ export default function AdminPage() {
   const sidebarBg = isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-[#B2CFCF]';
   const cardBg = isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-[#B2CFCF] shadow-sm';
   const headerBg = isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-white/95 border-[#B2CFCF] shadow-sm';
-  
+
   // Inputs y Textos de Alto Contraste en Ambos Modos
   const inputBg = isDark
     ? 'bg-slate-950 border-slate-700 text-white font-bold focus:border-[#437579]'
@@ -701,13 +703,13 @@ export default function AdminPage() {
 
   return (
     <div className={`min-h-screen ${pageBg} flex flex-col font-sans transition-colors duration-200 selection:bg-[#437579] selection:text-white`}>
-      
+
       <div className="flex flex-1 min-h-screen overflow-hidden">
-        
+
         {/* Sidebar Lateral Fijo (Desktop) */}
         <aside className={`w-72 ${sidebarBg} border-r flex flex-col justify-between p-4 shrink-0 hidden md:flex transition-colors`}>
           <div className="space-y-6">
-            
+
             <div className="flex items-center space-x-3 px-2 py-1">
               <div className="w-10 h-10 rounded-full bg-white p-0.5 border border-[#437579] overflow-hidden shrink-0 shadow-md">
                 <img src="/img/logo.png" alt="Logo Imidi" className="w-full h-full object-cover" />
@@ -725,11 +727,10 @@ export default function AdminPage() {
 
               <button
                 onClick={() => setActiveTab('dashboard')}
-                className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                  activeTab === 'dashboard'
+                className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === 'dashboard'
                     ? 'bg-[#437579] text-white shadow-md'
                     : isDark ? 'text-slate-300 hover:bg-slate-800 hover:text-white' : 'text-[#2D4D51] hover:bg-[#DDE8E8] hover:text-[#162C2E]'
-                }`}
+                  }`}
               >
                 <LayoutDashboard className="w-4 h-4 text-emerald-500" />
                 <span>Dashboard Principal</span>
@@ -737,11 +738,10 @@ export default function AdminPage() {
 
               <button
                 onClick={() => setActiveTab('pedidos')}
-                className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                  activeTab === 'pedidos'
+                className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === 'pedidos'
                     ? 'bg-[#437579] text-white shadow-md'
                     : isDark ? 'text-slate-300 hover:bg-slate-800 hover:text-white' : 'text-[#2D4D51] hover:bg-[#DDE8E8] hover:text-[#162C2E]'
-                }`}
+                  }`}
               >
                 <ShoppingBag className="w-4 h-4 text-sky-500" />
                 <span>Pedidos WhatsApp</span>
@@ -753,11 +753,10 @@ export default function AdminPage() {
 
               <button
                 onClick={() => setActiveTab('productos')}
-                className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                  activeTab === 'productos'
+                className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === 'productos'
                     ? 'bg-[#437579] text-white shadow-md'
                     : isDark ? 'text-slate-300 hover:bg-slate-800 hover:text-white' : 'text-[#2D4D51] hover:bg-[#DDE8E8] hover:text-[#162C2E]'
-                }`}
+                  }`}
               >
                 <Package className="w-4 h-4 text-amber-500" />
                 <span>Productos ({products.length})</span>
@@ -765,23 +764,32 @@ export default function AdminPage() {
 
               <button
                 onClick={() => setActiveTab('categorias')}
-                className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                  activeTab === 'categorias'
+                className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === 'categorias'
                     ? 'bg-[#437579] text-white shadow-md'
                     : isDark ? 'text-slate-300 hover:bg-slate-800 hover:text-white' : 'text-[#2D4D51] hover:bg-[#DDE8E8] hover:text-[#162C2E]'
-                }`}
+                  }`}
               >
                 <FolderTree className="w-4 h-4 text-indigo-500" />
                 <span>Gestión de Categorías</span>
               </button>
 
               <button
-                onClick={() => setActiveTab('solicitudes')}
-                className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                  activeTab === 'solicitudes'
+                onClick={() => setActiveTab('atributos')}
+                className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === 'atributos'
                     ? 'bg-[#437579] text-white shadow-md'
                     : isDark ? 'text-slate-300 hover:bg-slate-800 hover:text-white' : 'text-[#2D4D51] hover:bg-[#DDE8E8] hover:text-[#162C2E]'
-                }`}
+                  }`}
+              >
+                <Tag className="w-4 h-4 text-emerald-500" />
+                <span>Tallas, Hilos & Colores</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('solicitudes')}
+                className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === 'solicitudes'
+                    ? 'bg-[#437579] text-white shadow-md'
+                    : isDark ? 'text-slate-300 hover:bg-slate-800 hover:text-white' : 'text-[#2D4D51] hover:bg-[#DDE8E8] hover:text-[#162C2E]'
+                  }`}
               >
                 <Scissors className="w-4 h-4 text-[#D97B84]" />
                 <span>Solicitudes a Medida ({customRequests.length})</span>
@@ -793,11 +801,10 @@ export default function AdminPage() {
 
               <button
                 onClick={() => setActiveTab('config')}
-                className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                  activeTab === 'config'
+                className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === 'config'
                     ? 'bg-[#437579] text-white shadow-md'
                     : isDark ? 'text-slate-300 hover:bg-slate-800 hover:text-white' : 'text-[#2D4D51] hover:bg-[#DDE8E8] hover:text-[#162C2E]'
-                }`}
+                  }`}
               >
                 <Store className="w-4 h-4 text-indigo-600" />
                 <span>Módulo de Negocio</span>
@@ -805,11 +812,10 @@ export default function AdminPage() {
 
               <button
                 onClick={() => setActiveTab('clientes')}
-                className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                  activeTab === 'clientes'
+                className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === 'clientes'
                     ? 'bg-[#437579] text-white shadow-md'
                     : isDark ? 'text-slate-300 hover:bg-slate-800 hover:text-white' : 'text-[#2D4D51] hover:bg-[#DDE8E8] hover:text-[#162C2E]'
-                }`}
+                  }`}
               >
                 <Users className="w-4 h-4 text-teal-500" />
                 <span>Gestión de Clientes ({clientsList.length})</span>
@@ -817,11 +823,10 @@ export default function AdminPage() {
 
               <button
                 onClick={() => setActiveTab('usuarios')}
-                className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                  activeTab === 'usuarios'
+                className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === 'usuarios'
                     ? 'bg-[#437579] text-white shadow-md'
                     : isDark ? 'text-slate-300 hover:bg-slate-800 hover:text-white' : 'text-[#2D4D51] hover:bg-[#DDE8E8] hover:text-[#162C2E]'
-                }`}
+                  }`}
               >
                 <UserCheck className="w-4 h-4 text-[#D89B53]" />
                 <span>Gestión de Usuarios</span>
@@ -832,9 +837,8 @@ export default function AdminPage() {
           <div className="pt-4 border-t border-slate-800/20 text-[11px] space-y-2">
             <Link
               href="/"
-              className={`flex items-center space-x-2 px-3 py-2 rounded-xl font-bold transition-all ${
-                isDark ? 'bg-slate-800 hover:bg-slate-700 text-white' : 'bg-[#DDE8E8] hover:bg-[#B2CFCF] text-[#162C2E]'
-              }`}
+              className={`flex items-center space-x-2 px-3 py-2 rounded-xl font-bold transition-all ${isDark ? 'bg-slate-800 hover:bg-slate-700 text-white' : 'bg-[#DDE8E8] hover:bg-[#B2CFCF] text-[#162C2E]'
+                }`}
             >
               <ArrowLeft className="w-4 h-4" />
               <span>Volver a la Tienda</span>
@@ -848,7 +852,7 @@ export default function AdminPage() {
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setMobileAdminNavOpen(false)} />
             <aside className={`absolute top-0 left-0 bottom-0 w-72 ${sidebarBg} border-r flex flex-col justify-between p-4 shadow-2xl z-10 overflow-y-auto safe-bottom animate-in slide-in-from-left duration-200`}>
               <div className="space-y-6">
-                
+
                 <div className="flex items-center justify-between px-2 py-1 border-b border-slate-800/20 pb-3">
                   <div className="flex items-center space-x-3">
                     <div className="w-9 h-9 rounded-full bg-white p-0.5 border border-[#437579] overflow-hidden shrink-0 shadow-md">
@@ -871,11 +875,10 @@ export default function AdminPage() {
 
                   <button
                     onClick={() => { setActiveTab('dashboard'); setMobileAdminNavOpen(false); }}
-                    className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                      activeTab === 'dashboard'
+                    className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === 'dashboard'
                         ? 'bg-[#437579] text-white shadow-md'
                         : isDark ? 'text-slate-300 hover:bg-slate-800 hover:text-white' : 'text-[#2D4D51] hover:bg-[#DDE8E8] hover:text-[#162C2E]'
-                    }`}
+                      }`}
                   >
                     <LayoutDashboard className="w-4 h-4 text-emerald-500" />
                     <span>Dashboard Principal</span>
@@ -883,11 +886,10 @@ export default function AdminPage() {
 
                   <button
                     onClick={() => { setActiveTab('pedidos'); setMobileAdminNavOpen(false); }}
-                    className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                      activeTab === 'pedidos'
+                    className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === 'pedidos'
                         ? 'bg-[#437579] text-white shadow-md'
                         : isDark ? 'text-slate-300 hover:bg-slate-800 hover:text-white' : 'text-[#2D4D51] hover:bg-[#DDE8E8] hover:text-[#162C2E]'
-                    }`}
+                      }`}
                   >
                     <ShoppingBag className="w-4 h-4 text-sky-500" />
                     <span>Pedidos WhatsApp</span>
@@ -899,11 +901,10 @@ export default function AdminPage() {
 
                   <button
                     onClick={() => { setActiveTab('productos'); setMobileAdminNavOpen(false); }}
-                    className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                      activeTab === 'productos'
+                    className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === 'productos'
                         ? 'bg-[#437579] text-white shadow-md'
                         : isDark ? 'text-slate-300 hover:bg-slate-800 hover:text-white' : 'text-[#2D4D51] hover:bg-[#DDE8E8] hover:text-[#162C2E]'
-                    }`}
+                      }`}
                   >
                     <Package className="w-4 h-4 text-amber-500" />
                     <span>Productos ({products.length})</span>
@@ -911,23 +912,32 @@ export default function AdminPage() {
 
                   <button
                     onClick={() => { setActiveTab('categorias'); setMobileAdminNavOpen(false); }}
-                    className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                      activeTab === 'categorias'
+                    className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === 'categorias'
                         ? 'bg-[#437579] text-white shadow-md'
                         : isDark ? 'text-slate-300 hover:bg-slate-800 hover:text-white' : 'text-[#2D4D51] hover:bg-[#DDE8E8] hover:text-[#162C2E]'
-                    }`}
+                      }`}
                   >
                     <FolderTree className="w-4 h-4 text-indigo-500" />
                     <span>Gestión de Categorías</span>
                   </button>
 
                   <button
-                    onClick={() => { setActiveTab('solicitudes'); setMobileAdminNavOpen(false); }}
-                    className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                      activeTab === 'solicitudes'
+                    onClick={() => { setActiveTab('atributos'); setMobileAdminNavOpen(false); }}
+                    className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === 'atributos'
                         ? 'bg-[#437579] text-white shadow-md'
                         : isDark ? 'text-slate-300 hover:bg-slate-800 hover:text-white' : 'text-[#2D4D51] hover:bg-[#DDE8E8] hover:text-[#162C2E]'
-                    }`}
+                      }`}
+                  >
+                    <Tag className="w-4 h-4 text-emerald-500" />
+                    <span>Tallas, Hilos & Colores</span>
+                  </button>
+
+                  <button
+                    onClick={() => { setActiveTab('solicitudes'); setMobileAdminNavOpen(false); }}
+                    className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === 'solicitudes'
+                        ? 'bg-[#437579] text-white shadow-md'
+                        : isDark ? 'text-slate-300 hover:bg-slate-800 hover:text-white' : 'text-[#2D4D51] hover:bg-[#DDE8E8] hover:text-[#162C2E]'
+                      }`}
                   >
                     <Scissors className="w-4 h-4 text-[#D97B84]" />
                     <span>Solicitudes a Medida ({customRequests.length})</span>
@@ -939,11 +949,10 @@ export default function AdminPage() {
 
                   <button
                     onClick={() => { setActiveTab('config'); setMobileAdminNavOpen(false); }}
-                    className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                      activeTab === 'config'
+                    className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === 'config'
                         ? 'bg-[#437579] text-white shadow-md'
                         : isDark ? 'text-slate-300 hover:bg-slate-800 hover:text-white' : 'text-[#2D4D51] hover:bg-[#DDE8E8] hover:text-[#162C2E]'
-                    }`}
+                      }`}
                   >
                     <Store className="w-4 h-4 text-indigo-600" />
                     <span>Módulo de Negocio</span>
@@ -951,11 +960,10 @@ export default function AdminPage() {
 
                   <button
                     onClick={() => { setActiveTab('clientes'); setMobileAdminNavOpen(false); }}
-                    className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                      activeTab === 'clientes'
+                    className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === 'clientes'
                         ? 'bg-[#437579] text-white shadow-md'
                         : isDark ? 'text-slate-300 hover:bg-slate-800 hover:text-white' : 'text-[#2D4D51] hover:bg-[#DDE8E8] hover:text-[#162C2E]'
-                    }`}
+                      }`}
                   >
                     <Users className="w-4 h-4 text-teal-500" />
                     <span>Gestión de Clientes ({clientsList.length})</span>
@@ -963,11 +971,10 @@ export default function AdminPage() {
 
                   <button
                     onClick={() => { setActiveTab('usuarios'); setMobileAdminNavOpen(false); }}
-                    className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                      activeTab === 'usuarios'
+                    className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === 'usuarios'
                         ? 'bg-[#437579] text-white shadow-md'
                         : isDark ? 'text-slate-300 hover:bg-slate-800 hover:text-white' : 'text-[#2D4D51] hover:bg-[#DDE8E8] hover:text-[#162C2E]'
-                    }`}
+                      }`}
                   >
                     <UserCheck className="w-4 h-4 text-[#D89B53]" />
                     <span>Gestión de Usuarios</span>
@@ -978,9 +985,8 @@ export default function AdminPage() {
               <div className="pt-4 border-t border-slate-800/20 text-[11px] space-y-2">
                 <Link
                   href="/"
-                  className={`flex items-center space-x-2 px-3 py-2 rounded-xl font-bold transition-all ${
-                    isDark ? 'bg-slate-800 hover:bg-slate-700 text-white' : 'bg-[#DDE8E8] hover:bg-[#B2CFCF] text-[#162C2E]'
-                  }`}
+                  className={`flex items-center space-x-2 px-3 py-2 rounded-xl font-bold transition-all ${isDark ? 'bg-slate-800 hover:bg-slate-700 text-white' : 'bg-[#DDE8E8] hover:bg-[#B2CFCF] text-[#162C2E]'
+                    }`}
                 >
                   <ArrowLeft className="w-4 h-4" />
                   <span>Volver a la Tienda</span>
@@ -992,7 +998,7 @@ export default function AdminPage() {
 
         {/* Área Principal */}
         <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          
+
           <header className={`h-14 sm:h-16 border-b px-3 sm:px-6 flex items-center justify-between ${headerBg} shrink-0 transition-colors`}>
             <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
               {/* Botón Hamburger para Móvil */}
@@ -1010,6 +1016,7 @@ export default function AdminPage() {
                   {activeTab === 'dashboard' && 'Dashboard Principal / Ventas'}
                   {activeTab === 'productos' && 'Gestión de Productos & Catálogo'}
                   {activeTab === 'categorias' && 'Gestión de Categorías de Tejidos'}
+                  {activeTab === 'atributos' && 'Gestión Global de Tallas, Hilos & Colores'}
                   {activeTab === 'pedidos' && 'Pedidos Web & WhatsApp'}
                   {activeTab === 'solicitudes' && 'Solicitudes de Costura a Medida'}
                   {activeTab === 'config' && 'Módulo de Negocio (Teléfono, Nombre y Correo)'}
@@ -1020,15 +1027,14 @@ export default function AdminPage() {
             </div>
 
             <div className="flex items-center space-x-3">
-              
+
               {/* Botón Switch Modo Claro / Modo Oscuro */}
               <button
                 onClick={() => setTheme(isDark ? 'light' : 'dark')}
-                className={`inline-flex items-center space-x-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all shadow-sm ${
-                  isDark
+                className={`inline-flex items-center space-x-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all shadow-sm ${isDark
                     ? 'bg-slate-800 border-slate-700 text-amber-400 hover:bg-slate-700'
                     : 'bg-white border-[#B2CFCF] text-indigo-700 hover:bg-[#DDE8E8]'
-                }`}
+                  }`}
                 title={isDark ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro'}
               >
                 {isDark ? (
@@ -1046,9 +1052,8 @@ export default function AdminPage() {
 
               <Link
                 href="/"
-                className={`inline-flex items-center space-x-1.5 text-xs px-3.5 py-2 rounded-xl border font-bold transition-all ${
-                  isDark ? 'text-slate-300 hover:text-white bg-slate-800 border-slate-700' : 'text-[#162C2E] hover:text-[#437579] bg-white border-[#B2CFCF]'
-                }`}
+                className={`inline-flex items-center space-x-1.5 text-xs px-3.5 py-2 rounded-xl border font-bold transition-all ${isDark ? 'text-slate-300 hover:text-white bg-slate-800 border-slate-700' : 'text-[#162C2E] hover:text-[#437579] bg-white border-[#B2CFCF]'
+                  }`}
               >
                 <ExternalLink className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Ver Sitio Web</span>
@@ -1057,7 +1062,7 @@ export default function AdminPage() {
           </header>
 
           <div className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
-            
+
             {/* 1. DASHBOARD */}
             {activeTab === 'dashboard' && (
               <div className="space-y-6">
@@ -1182,11 +1187,10 @@ export default function AdminPage() {
                             <td className="px-4 py-3">
                               <button
                                 onClick={() => handleToggleStock(prod)}
-                                className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all ${
-                                  prod.inStock
+                                className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all ${prod.inStock
                                     ? 'bg-emerald-500/20 text-emerald-600 border border-emerald-500/30'
                                     : 'bg-rose-500/20 text-rose-600 border border-rose-500/30'
-                                }`}
+                                  }`}
                               >
                                 {prod.inStock ? 'Disponible' : 'Agotado'}
                               </button>
@@ -1224,7 +1228,7 @@ export default function AdminPage() {
             {/* 3. CATEGORÍAS EN TABLA DE CRUD */}
             {activeTab === 'categorias' && (
               <div className="space-y-4">
-                
+
                 {/* Toolbar con buscador de categorías y botón modal de creación */}
                 <div className={`flex flex-col sm:flex-row items-center justify-between gap-4 ${cardBg} p-4 rounded-2xl`}>
                   <div className="relative w-full sm:w-80">
@@ -1296,18 +1300,18 @@ export default function AdminPage() {
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              </div>
 
-            </div>
-          )}
+              </div>
+            )}
 
             {/* 3.5 PEDIDOS WHATSAPP & ENCARGOS RECIBIDOS */}
             {activeTab === 'pedidos' && (
@@ -1389,7 +1393,7 @@ export default function AdminPage() {
               <div className="space-y-4">
                 <div className={`${cardBg} rounded-2xl p-6 space-y-4`}>
                   <div className="flex items-center justify-between border-b border-slate-800/20 pb-3">
-                    <h3 className="text-sm font-bold">Solicitudes de Confección & Costura $ en Supabase</h3>
+                    <h3 className="text-sm font-bold">Solicitudes de Confección & Costura</h3>
                     <span className="text-xs text-[#437579] font-bold">{customRequests.length} solicitudes</span>
                   </div>
 
@@ -1425,11 +1429,16 @@ export default function AdminPage() {
               </div>
             )}
 
+            {/* 4.5. MÓDULO GESTIÓN DE TALLAS, HILOS & COLORES */}
+            {activeTab === 'atributos' && (
+              <AdminAttributesModule isDark={isDark} />
+            )}
+
             {/* 5. MÓDULO DE NEGOCIO COMPACTO (ALTO CONTRASDE EN MODO CLARO Y OSCURO) */}
             {activeTab === 'config' && (
               <div className="max-w-4xl mx-auto space-y-4">
                 <form onSubmit={handleSaveBusinessConfig} className={`${cardBg} p-5 sm:p-6 rounded-3xl space-y-4 border shadow-md`}>
-                  
+
                   {/* Header Compacto con Título e Indicador de Estado */}
                   <div className="flex items-center justify-between pb-3 border-b border-slate-800/10">
                     <div className="flex items-center space-x-2.5">
@@ -1456,7 +1465,7 @@ export default function AdminPage() {
 
                   {/* Grid de Campos Compactos con Floating Labels de Alto Contraste */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs">
-                    
+
                     {/* 1. Nombre Oficial del Negocio */}
                     <div className="sm:col-span-2 relative">
                       <input
@@ -1736,9 +1745,8 @@ export default function AdminPage() {
                                 ) : (
                                   <button
                                     onClick={() => handleToggleUserRole(usr.id)}
-                                    className={`px-3 py-1 rounded-lg font-bold text-[11px] transition-all ${
-                                      isDark ? 'bg-slate-800 hover:bg-slate-700 text-white' : 'bg-[#DDE8E8] hover:bg-[#B2CFCF] text-[#162C2E]'
-                                    }`}
+                                    className={`px-3 py-1 rounded-lg font-bold text-[11px] transition-all ${isDark ? 'bg-slate-800 hover:bg-slate-700 text-white' : 'bg-[#DDE8E8] hover:bg-[#B2CFCF] text-[#162C2E]'
+                                      }`}
                                   >
                                     {usr.role === 'admin' ? 'Cambiar a Cliente' : 'Hacer Admin'}
                                   </button>
@@ -1929,7 +1937,7 @@ export default function AdminPage() {
       {editingUser && (
         <div className="fixed inset-0 z-60 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className={`${isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-[#B2CFCF] text-[#162C2E]'} border rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl`}>
-            
+
             <div className="flex items-center justify-between border-b border-slate-800/20 pb-3">
               <h3 className="font-bold text-base">Editar Información del Usuario</h3>
               <button onClick={() => setEditingUser(null)} className="text-slate-400 hover:text-rose-500">
@@ -1938,7 +1946,7 @@ export default function AdminPage() {
             </div>
 
             <form onSubmit={handleSaveEditedUser} className="space-y-4 text-xs">
-              
+
               <div className="relative">
                 <input
                   type="text"
@@ -2017,7 +2025,7 @@ export default function AdminPage() {
       {isEditingProduct && (
         <div className="fixed inset-0 z-60 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className={`${isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-[#B2CFCF] text-[#162C2E]'} border rounded-3xl max-w-2xl w-full p-6 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto`}>
-            
+
             <div className="flex items-center justify-between border-b border-slate-800/20 pb-3">
               <h3 className="font-bold text-base">
                 {currentProduct.id ? 'Editar Producto' : 'Crear Nuevo Producto'}
@@ -2028,7 +2036,7 @@ export default function AdminPage() {
             </div>
 
             <form onSubmit={handleSaveProduct} className="space-y-4 text-xs">
-              
+
               {/* Sección de Imagen */}
               <div className={`space-y-3 p-4 rounded-2xl border ${isDark ? 'bg-slate-950 border-slate-800' : 'bg-[#F4F1EA] border-[#B2CFCF]'}`}>
                 <label className="block font-bold text-xs flex items-center gap-1.5">

@@ -387,32 +387,85 @@ export function Catalog({
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
         
         {/* Encabezado del Catálogo pegado a la barra superior */}
-        <div className="text-center space-y-2 max-w-2xl mx-auto mb-4 sm:mb-6">
-          <div className="inline-flex items-center space-x-2 bg-white border border-[#C4D8D9] px-3 sm:px-4 py-1 rounded-full text-xs font-bold text-[#437579] shadow-sm">
-            <Tag className="w-3.5 h-3.5 text-[#437579]" />
+        <div className="text-center space-y-1.5 sm:space-y-2 max-w-2xl mx-auto mb-3 sm:mb-6">
+          <div className="inline-flex items-center space-x-2 bg-white border border-[#C4D8D9] px-3 sm:px-4 py-1 rounded-full text-[10px] sm:text-xs font-bold text-[#437579] shadow-sm">
+            <Tag className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-[#437579]" />
             <span>Colecciones Exclusivas Hechas a Mano</span>
           </div>
 
-          <h2 className="font-serif text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-[#213B3E]">
+          <h2 className="font-serif text-xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-[#213B3E]">
             Catálogo de Prendas & Tejidos
           </h2>
 
-          <p className="text-[#597477] text-[11px] sm:text-xs lg:text-sm leading-relaxed font-normal">
+          <p className="text-[#597477] text-[11px] sm:text-xs lg:text-sm leading-relaxed font-normal hidden sm:block">
             Descubre nuestras blusas caladas, vestidos de ensueño, vinchas y mantelería elaborados con hilos de algodón peruano.
           </p>
         </div>
 
+        {/* Buscador Directo Visible en Móvil */}
+        <div className="relative mb-3 lg:hidden max-w-md mx-auto">
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="🔍 Buscar prenda por nombre o color..."
+            className="w-full bg-white border border-[#C4D8D9] rounded-2xl pl-4 pr-10 py-2.5 text-xs font-semibold text-[#213B3E] focus:outline-none focus:border-[#437579] shadow-sm transition-all"
+          />
+          {searchTerm ? (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-[#597477] hover:text-[#213B3E]"
+              aria-label="Limpiar búsqueda"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          ) : null}
+        </div>
+
+        {/* Barra de Filtro Rápido por Categorías en Móvil (Todas las categorías visibles de un vistazo) */}
+        <div className="lg:hidden mb-3">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              onClick={() => handleResetFilters()}
+              className={`px-2.5 py-1 rounded-full text-xs font-bold transition-all border ${
+                selectedCategories.length === 0 && selectedCategory === 'todas'
+                  ? 'bg-[#437579] text-white border-[#437579] shadow-sm'
+                  : 'bg-white text-[#213B3E] border-[#C4D8D9]'
+              }`}
+            >
+              Todas ({products.length})
+            </button>
+            {CATEGORY_TABS.map((tab) => {
+              const isChecked = selectedCategories.includes(tab.id) || selectedCategory === tab.id;
+              const count = categoryCounts[tab.id] || 0;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => handleToggleCategory(tab.id)}
+                  className={`px-2.5 py-1 rounded-full text-xs font-bold transition-all border ${
+                    isChecked
+                      ? 'bg-[#437579] text-white border-[#437579] shadow-sm'
+                      : 'bg-white text-[#213B3E] border-[#C4D8D9]'
+                  }`}
+                >
+                  {tab.label} ({count})
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Layout en Grid: Sidebar Lateral Independiente (Izquierda) + Productos (Derecha) */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-6 items-start">
           
           {/* Botón de filtros para mobile */}
           <div className="lg:hidden">
             <button
               onClick={() => setMobileFiltersOpen(true)}
-              className="w-full flex items-center justify-center space-x-2 bg-white border border-[#C4D8D9] text-[#213B3E] font-bold text-xs py-3 rounded-2xl shadow-sm"
+              className="w-full flex items-center justify-center space-x-2 bg-white border border-[#C4D8D9] text-[#213B3E] font-bold text-xs py-2.5 rounded-2xl shadow-sm"
             >
               <SlidersHorizontal className="w-4 h-4 text-[#437579]" />
-              <span>Filtros y Categorías</span>
+              <span>Filtro por Rango de Precio & Búsqueda</span>
               {isFiltered && (
                 <span className="bg-[#D97B84] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
                   Activos
@@ -437,10 +490,10 @@ export function Catalog({
           )}
 
           {/* Área Principal de Productos (Derecha) */}
-          <div className="lg:col-span-8 xl:col-span-9 space-y-4 sm:space-y-5">
+          <div className="lg:col-span-8 xl:col-span-9 space-y-3 sm:space-y-5">
             
-            <div className="flex items-center justify-between bg-white px-4 sm:px-6 py-3 sm:py-3.5 rounded-2xl border border-[#C4D8D9] shadow-sm text-xs">
-              <span className="text-[#597477] font-semibold">
+            <div className="flex items-center justify-between bg-white px-3.5 sm:px-6 py-2 sm:py-3.5 rounded-2xl border border-[#C4D8D9] shadow-sm text-xs">
+              <span className="text-[#597477] font-semibold text-[11px] sm:text-xs">
                 <strong className="text-[#437579] font-bold">{filteredProducts.length}</strong> prendas
               </span>
 
@@ -455,7 +508,7 @@ export function Catalog({
               )}
             </div>
 
-            {/* Grilla de Productos */}
+            {/* Grilla de Productos de 2 Columnas en Móvil */}
             {filteredProducts.length === 0 ? (
               <div className="text-center py-12 sm:py-16 bg-white rounded-3xl border border-[#C4D8D9] p-6 sm:p-8 max-w-md mx-auto space-y-3 shadow-sm">
                 <div className="w-12 h-12 rounded-full bg-[#E2ECEC] text-[#437579] flex items-center justify-center mx-auto">
@@ -476,7 +529,7 @@ export function Catalog({
                 </button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+              <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-6">
                 {filteredProducts.map((product) => (
                   <ProductCard
                     key={product.id}
