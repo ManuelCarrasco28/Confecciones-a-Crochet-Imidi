@@ -328,9 +328,17 @@ export default function AdminPage() {
   };
 
   const handleDeleteProduct = async (id: string) => {
+    if (!window.confirm('¿Estás seguro de que deseas eliminar este producto del catálogo?')) {
+      return;
+    }
+
     try {
       const supabase = createClient();
-      await supabase.from('products').delete().eq('id', id);
+      const { error } = await supabase.from('products').delete().eq('id', id);
+      if (error) {
+        alert('No se pudo eliminar el producto de Supabase.');
+        return;
+      }
     } catch {
       // Ignorar
     }
@@ -348,24 +356,38 @@ export default function AdminPage() {
     setProducts((prev) => prev.map((p) => (p.id === prod.id ? { ...p, inStock: updatedStock } : p)));
   };
 
-  // Guardar / Editar Categoría CRUD
+  // Guardar / Editar Categoría CRUD con Sanitización
   const handleSaveCategory = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newCatName) return;
+    const name = newCatName.trim();
+    if (!name) return;
+
+    const sanitizeSlug = (str: string) =>
+      str
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '');
 
     if (editingCatId) {
       setCategories((prev) =>
-        prev.map((c) => (c.id === editingCatId ? { ...c, name: newCatName, description: newCatDesc } : c))
+        prev.map((c) => (c.id === editingCatId ? { ...c, name, description: newCatDesc.trim() } : c))
       );
       setEditingCatId(null);
     } else {
-      const slug = newCatName.toLowerCase().replace(/\s+/g, '_');
+      const slug = sanitizeSlug(name);
+      if (categories.some((c) => c.id === slug || c.name.toLowerCase() === name.toLowerCase())) {
+        alert('Ya existe una categoría con ese nombre.');
+        return;
+      }
+
       setCategories((prev) => [
         ...prev,
         {
           id: slug,
-          name: newCatName,
-          description: newCatDesc || 'Categoría de productos a crochet',
+          name,
+          description: newCatDesc.trim() || 'Categoría de productos a crochet',
         },
       ]);
     }
@@ -390,6 +412,24 @@ export default function AdminPage() {
   };
 
   const handleDeleteCategory = (id: string) => {
+    const target = categories.find((c) => c.id === id);
+    if (!target) return;
+
+    const isUsed = products.some(
+      (p) =>
+        p.category.toLowerCase() === target.id.toLowerCase() ||
+        p.category.toLowerCase() === target.name.toLowerCase()
+    );
+
+    if (isUsed) {
+      alert(`No se puede eliminar la categoría "${target.name}" porque existen productos en el catálogo vinculados a ella.`);
+      return;
+    }
+
+    if (!window.confirm(`¿Estás seguro de que deseas eliminar la categoría "${target.name}"?`)) {
+      return;
+    }
+
     setCategories((prev) => prev.filter((c) => c.id !== id));
   };
 
@@ -504,11 +544,28 @@ export default function AdminPage() {
   const handleDeleteUser = async (userId?: string) => {
     if (!userId) return;
 
+    if (!window.confirm('¿Estás seguro de que deseas eliminar este usuario y su cuenta de acceso?')) {
+      return;
+    }
+
     try {
-      const supabase = createClient();
-      await supabase.from('profiles').delete().eq('id', userId);
+      // Call API route to delete both Auth User and Profile record
+      const res = await fetch(`/api/admin/users?userId=${userId}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'No se pudo eliminar el usuario.');
+        return;
+      }
     } catch {
-      // Ignorar
+      // Fallback manual profile delete
+      try {
+        const supabase = createClient();
+        await supabase.from('profiles').delete().eq('id', userId);
+      } catch {
+        // Ignorar
+      }
     }
 
     setSystemUsers((prev) => prev.filter((u) => u.id !== userId));
@@ -516,9 +573,18 @@ export default function AdminPage() {
 
   const handleDeleteCustomRequest = async (reqId?: string) => {
     if (!reqId) return;
+
+    if (!window.confirm('¿Estás seguro de que deseas eliminar esta solicitud?')) {
+      return;
+    }
+
     try {
       const supabase = createClient();
-      await supabase.from('custom_requests').delete().eq('id', reqId);
+      const { error } = await supabase.from('custom_requests').delete().eq('id', reqId);
+      if (error) {
+        alert('No se pudo eliminar la solicitud de la base de datos.');
+        return;
+      }
     } catch {
       // Ignorar
     }
@@ -1242,6 +1308,81 @@ export default function AdminPage() {
 
             </div>
           )}
+
+            {/* 3.5 PEDIDOS WHATSAPP & ENCARGOS RECIBIDOS */}
+            {activeTab === 'pedidos' && (
+              <div className="space-y-4">
+                <div className={`${cardBg} rounded-2xl p-6 space-y-4`}>
+                  <div className="flex items-center justify-between border-b border-slate-800/20 pb-3">
+                    <div>
+                      <h3 className="text-sm font-bold flex items-center gap-2">
+                        <ShoppingBag className="w-4 h-4 text-sky-500" />
+                        <span>Pedidos & Cotizaciones a Medida recibidos por WhatsApp ({customRequests.length})</span>
+                      </h3>
+                      <p className={`text-xs ${subText} mt-0.5`}>
+                        Registro de solicitudes de prendas personalizadas y costura a medida enviadas por clientes.
+                      </p>
+                    </div>
+                  </div>
+
+                  {customRequests.length === 0 ? (
+                    <div className="text-center py-10 space-y-2">
+                      <ShoppingBag className="w-10 h-10 text-slate-400 mx-auto opacity-50" />
+                      <p className={`text-xs ${subText} italic`}>No hay solicitudes registradas por el momento.</p>
+                      <p className="text-[11px] text-[#437579]">Los clientes envían sus pedidos a medida a través de /encargos y la portada de la web.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {customRequests.map((req) => (
+                        <div key={req.id} className={`${isDark ? 'bg-slate-950 border-slate-800' : 'bg-white border-[#B2CFCF]'} p-4 rounded-2xl border space-y-3 shadow-sm`}>
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <span className="font-bold text-sm block">{req.full_name}</span>
+                              <span className="text-xs text-[#437579] font-semibold">{req.phone || 'Sin celular registrado'}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className={`text-[10px] ${subText}`}>
+                                {req.created_at ? new Date(req.created_at).toLocaleDateString('es-PE') : 'Reciente'}
+                              </span>
+                              <button
+                                onClick={() => handleDeleteCustomRequest(req.id)}
+                                className="p-1.5 bg-rose-600/20 text-rose-600 hover:bg-rose-600 hover:text-white rounded-lg transition-colors"
+                                title="Eliminar solicitud"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="text-xs space-y-1 bg-[#437579]/10 p-3 rounded-xl border border-[#437579]/20">
+                            <div><strong className="text-[#D97B84]">Tipo de Servicio:</strong> {req.service_type}</div>
+                            {req.selected_yarn && <div><strong>Tipo de Hilo:</strong> {req.selected_yarn}</div>}
+                            {req.selected_color && <div><strong>Color:</strong> {req.selected_color}</div>}
+                            {req.measurements && <div><strong>Medidas:</strong> {req.measurements}</div>}
+                          </div>
+
+                          <p className={`text-xs ${subText} ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-[#F4F1EA] border-[#B2CFCF]'} p-2.5 rounded-xl border`}>
+                            {req.details}
+                          </p>
+
+                          {req.phone && (
+                            <a
+                              href={`https://wa.me/51${normalizePeruMobile(req.phone)}?text=${encodeURIComponent(`¡Hola ${req.full_name}! Te saludamos de Confecciones a Crochet Imidi sobre tu solicitud de ${req.service_type}.`)}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="w-full inline-flex items-center justify-center space-x-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs py-2 px-3 rounded-xl transition-all shadow-sm"
+                            >
+                              <MessageCircle className="w-4 h-4" />
+                              <span>Contactar Cliente por WhatsApp</span>
+                            </a>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* 4. SOLICITUDES DE COSTURA REALES CON ACCIONES COMPLETAS */}
             {activeTab === 'solicitudes' && (

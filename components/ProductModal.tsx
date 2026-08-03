@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, ShoppingBag, Check, Sparkles } from 'lucide-react';
+import { X, ShoppingBag, Check, Heart } from 'lucide-react';
 import { Product, YARN_OPTIONS } from '@/lib/types';
 import { formatCurrency } from '@/lib/utils';
 
@@ -18,10 +18,10 @@ interface ProductModalProps {
 }
 
 export function ProductModal({ product, onClose, onAddToCart }: ProductModalProps) {
-  // Regla de Hooks de React: Declarar Hooks SIEMPRE en la parte superior antes de retornos condicionales
-  const [selectedYarn, setSelectedYarn] = useState<string>(
-    product?.yarnTypes && product.yarnTypes.length > 0 ? product.yarnTypes[0] : YARN_OPTIONS[0]
-  );
+  const [prevProductId, setPrevProductId] = useState<string | null>(null);
+  const availableYarns = product?.yarnTypes && product.yarnTypes.length > 0 ? product.yarnTypes : YARN_OPTIONS;
+
+  const [selectedYarn, setSelectedYarn] = useState<string>(availableYarns[0]);
   const [selectedColor, setSelectedColor] = useState<string>(
     product?.colors && product.colors.length > 0 ? product.colors[0] : 'Turquesa Imidi (Original)'
   );
@@ -31,10 +31,21 @@ export function ProductModal({ product, onClose, onAddToCart }: ProductModalProp
   const [customNotes, setCustomNotes] = useState<string>('');
   const [addedSuccess, setAddedSuccess] = useState<boolean>(false);
 
+  // Patrón recomendado por React para reiniciar estado derivado al cambiar de prop
+  if (product && product.id !== prevProductId) {
+    setPrevProductId(product.id);
+    const yarns = product.yarnTypes && product.yarnTypes.length > 0 ? product.yarnTypes : YARN_OPTIONS;
+    setSelectedYarn(yarns[0]);
+    setSelectedColor(product.colors && product.colors.length > 0 ? product.colors[0] : 'Turquesa Imidi (Original)');
+    setSelectedSize(product.sizes && product.sizes.length > 0 ? product.sizes[0] : 'M');
+    setCustomNotes('');
+    setAddedSuccess(false);
+  }
+
   if (!product) return null;
 
   const handleAdd = () => {
-    onAddToCart(product, selectedSize, selectedColor, customNotes, selectedYarn);
+    onAddToCart(product, selectedSize, selectedColor, customNotes.trim(), selectedYarn);
     setAddedSuccess(true);
     setTimeout(() => {
       setAddedSuccess(false);
@@ -71,7 +82,7 @@ export function ProductModal({ product, onClose, onAddToCart }: ProductModalProp
             
             {/* Aviso de Modelo Confeccionado a Pedido */}
             <div className="absolute top-3 sm:top-4 left-3 sm:left-4 bg-white/95 backdrop-blur-md px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full border border-[#C4D8D9] shadow-md flex items-center gap-1 sm:gap-1.5">
-              <Sparkles className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-[#D89B53]" />
+              <Heart className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-[#D97B84] fill-[#D97B84]" />
               <span className="text-[9px] sm:text-[10px] font-extrabold text-[#437579] uppercase tracking-wider">
                 Tejido a Pedido
               </span>
@@ -80,7 +91,7 @@ export function ProductModal({ product, onClose, onAddToCart }: ProductModalProp
             {!product.inStock && (
               <div className="absolute inset-0 bg-stone-900/50 backdrop-blur-[2px] flex items-center justify-center">
                 <span className="bg-rose-600 text-white font-bold text-xs uppercase px-4 py-2 rounded-full shadow-lg">
-                  No Disponible Temporalmente
+                  Bajo Encargo / Agotado
                 </span>
               </div>
             )}
@@ -122,7 +133,7 @@ export function ProductModal({ product, onClose, onAddToCart }: ProductModalProp
                   Tipo de Hilo Preferido:
                 </label>
                 <div className="grid grid-cols-2 gap-1.5 text-[11px] sm:text-xs">
-                  {YARN_OPTIONS.map((yarn) => (
+                  {availableYarns.map((yarn) => (
                     <button
                       key={yarn}
                       type="button"

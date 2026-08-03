@@ -108,7 +108,7 @@ export function Navbar({
               <span>Catálogo</span>
             </Link>
 
-            {/* Costura & Arreglos $ */}
+            {/* Costura & Arreglos */}
             <Link
               href="/arreglos"
               className={`inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-full border transition-all shadow-sm hover:scale-105 ${
@@ -118,7 +118,7 @@ export function Navbar({
               }`}
             >
               <Scissors className={`w-3.5 h-3.5 shrink-0 ${pathname === '/arreglos' ? 'text-white' : 'text-[#D89B53]'}`} />
-              <span>Costura & Arreglos $</span>
+              <span>Costura & Arreglos</span>
             </Link>
 
             {/* Contacto */}
@@ -195,9 +195,15 @@ export function Navbar({
               </button>
             )}
 
-            {/* Lista de Encargos - Navega a /encargos */}
+            {/* Lista de Encargos - Abre gaveta o navega a /encargos */}
             <Link
               href="/encargos"
+              onClick={(e) => {
+                if (onOpenCart && pathname !== '/encargos') {
+                  e.preventDefault();
+                  onOpenCart();
+                }
+              }}
               className={`relative p-2 sm:p-2.5 rounded-full transition-all border flex items-center gap-1 px-2.5 sm:px-3 whitespace-nowrap shadow-sm ${
                 pathname === '/encargos'
                   ? 'bg-[#437579] text-white border-[#437579] shadow-md'

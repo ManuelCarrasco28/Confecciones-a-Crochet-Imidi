@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Sparkles, Scissors, Heart, ShieldCheck, ArrowRight } from 'lucide-react';
+import { Award, Scissors, Heart, ShieldCheck, ArrowRight } from 'lucide-react';
 
 export function Hero() {
   return (
@@ -20,7 +20,7 @@ export function Hero() {
             
             {/* Distintivos Artesanales */}
             <div className="inline-flex items-center space-x-2 bg-white/90 border border-[#437579]/30 px-3 sm:px-4 py-1.5 rounded-full shadow-sm">
-              <Sparkles className="w-4 h-4 text-[#D89B53] animate-pulse" />
+              <Award className="w-4 h-4 text-[#D89B53]" />
               <span className="text-[11px] sm:text-sm font-bold text-[#437579]">
                 Confección Artesanal & Arreglos a Medida
               </span>
@@ -51,7 +51,7 @@ export function Hero() {
                 className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 bg-white hover:bg-[#F8F5EF] text-[#D97B84] hover:text-[#C66973] font-bold px-5 sm:px-6 py-3.5 rounded-full border border-[#D97B84]/40 shadow-sm transition-all text-xs uppercase tracking-wider"
               >
                 <Scissors className="w-4 h-4 text-[#D89B53]" />
-                <span>Pedir a Medida / Costura $</span>
+                <span>Pedir a Medida / Costura</span>
               </Link>
             </div>
 
@@ -118,7 +118,7 @@ export function Hero() {
                   ✂️
                 </div>
                 <div className="text-[10px] sm:text-xs">
-                  <p className="font-bold text-[#213B3E]">Servicio de Costura $</p>
+                  <p className="font-bold text-[#213B3E]">Costura & Arreglos</p>
                   <p className="text-[#597477] hidden sm:block text-[10px]">Arreglos y entalles rápidos</p>
                 </div>
               </div>

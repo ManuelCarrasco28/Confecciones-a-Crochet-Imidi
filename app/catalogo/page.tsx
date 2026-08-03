@@ -127,12 +127,13 @@ function CatalogoContent() {
           item.product.id === product.id &&
           item.selectedSize === selectedSize &&
           item.selectedColor === selectedColor &&
-          item.selectedYarn === selectedYarn
+          item.selectedYarn === selectedYarn &&
+          (item.customNotes || '') === (customNotes || '')
       );
 
       if (existingIndex > -1) {
         const updated = [...prevCart];
-        updated[existingIndex].quantity += 1;
+        updated[existingIndex].quantity = Math.min(50, updated[existingIndex].quantity + 1);
         return updated;
       } else {
         return [

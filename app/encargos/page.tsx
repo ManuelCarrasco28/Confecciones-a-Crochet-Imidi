@@ -9,7 +9,7 @@ import { AuthModal } from '@/components/AuthModal';
 import { CartItem, UserAccount, YARN_OPTIONS, COLOR_OPTIONS } from '@/lib/types';
 import { formatCurrency, generateWhatsAppCartLink } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
-import { ShoppingBag, Trash2, Plus, Minus, MessageCircle, ArrowLeft, ShieldCheck, Sparkles } from 'lucide-react';
+import { ShoppingBag, Trash2, Plus, Minus, MessageCircle, ArrowLeft, ShieldCheck, Heart } from 'lucide-react';
 
 export default function EncargosPage() {
   const [cart, setCart] = useState<CartItem[]>(() => {
@@ -149,7 +149,7 @@ export default function EncargosPage() {
                 href="/catalogo"
                 className="inline-flex items-center space-x-2 bg-[#437579] hover:bg-[#335C60] text-white font-bold text-xs px-6 py-3.5 rounded-2xl shadow-md transition-all uppercase tracking-wider mt-2"
               >
-                <Sparkles className="w-4 h-4 text-[#D89B53]" />
+                <Heart className="w-4 h-4 text-[#D97B84] fill-[#D97B84]" />
                 <span>Explorar Catálogo de Tejidos</span>
               </Link>
             </div>

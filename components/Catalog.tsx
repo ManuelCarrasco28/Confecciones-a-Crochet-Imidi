@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { Product, CategoryType } from '@/lib/types';
 import { ProductCard } from '@/components/ProductCard';
-import { Sparkles, Search, Filter, DollarSign, RotateCcw, ArrowUpDown, Tag, Check, X, SlidersHorizontal } from 'lucide-react';
+import { Search, Filter, DollarSign, RotateCcw, ArrowUpDown, Tag, Check, X, SlidersHorizontal } from 'lucide-react';
 
 interface CatalogProps {
   products: Product[];
@@ -129,17 +129,13 @@ export function Catalog({
         let matchesPrice = true;
         const price = p.price;
 
-        if (price < displayMin) {
-          matchesPrice = false;
-        }
-        if (price > displayMax) {
-          matchesPrice = false;
+        if (displayMin <= displayMax) {
+          if (price < displayMin || price > displayMax) {
+            matchesPrice = false;
+          }
         }
 
-        // 4. Filtro de Disponibilidad en Stock
-        const isAvailable = p.inStock !== false;
-
-        return matchesCategory && matchesSearch && matchesPrice && isAvailable;
+        return matchesCategory && matchesSearch && matchesPrice;
       })
       .sort((a, b) => {
         if (sortBy === 'price-asc') return a.price - b.price;
@@ -282,6 +278,12 @@ export function Catalog({
           </span>
         </div>
 
+        {displayMin > displayMax && (
+          <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-700 text-[10px] font-bold">
+            ⚠️ El precio mínimo (S/ {displayMin}) no puede ser mayor al precio máximo (S/ {displayMax}).
+          </div>
+        )}
+
         {/* Slider Interactivo de Precio Máximo */}
         <div className="space-y-1">
           <input
@@ -387,7 +389,7 @@ export function Catalog({
         {/* Encabezado del Catálogo pegado a la barra superior */}
         <div className="text-center space-y-2 max-w-2xl mx-auto mb-4 sm:mb-6">
           <div className="inline-flex items-center space-x-2 bg-white border border-[#C4D8D9] px-3 sm:px-4 py-1 rounded-full text-xs font-bold text-[#437579] shadow-sm">
-            <Sparkles className="w-3.5 h-3.5 text-[#D89B53]" />
+            <Tag className="w-3.5 h-3.5 text-[#437579]" />
             <span>Colecciones Exclusivas Hechas a Mano</span>
           </div>
 

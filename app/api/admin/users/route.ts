@@ -190,3 +190,59 @@ export async function POST(request: Request) {
     },
   });
 }
+
+export async function DELETE(request: Request) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceRoleKey) {
+    return NextResponse.json(
+      { error: 'Falta configurar Supabase con Service Role Key.' },
+      { status: 500 }
+    );
+  }
+
+  const adminClient = createSupabaseClient(supabaseUrl, supabaseServiceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+
+  const requester = await readRequester(request, supabaseUrl, supabaseAnonKey);
+  if (!requester.id && requester.email !== OWNER_EMAIL) {
+    return NextResponse.json({ error: 'No autorizado.' }, { status: 401 });
+  }
+
+  const { data: requesterProfile } = requester.id
+    ? await adminClient
+        .from('profiles')
+        .select('role')
+        .eq('id', requester.id)
+        .maybeSingle()
+    : { data: null };
+
+  const isAllowedAdmin = requester.email === OWNER_EMAIL || requesterProfile?.role === 'admin';
+  if (!isAllowedAdmin) {
+    return NextResponse.json({ error: 'No tienes permisos para eliminar usuarios.' }, { status: 403 });
+  }
+
+  const { searchParams } = new URL(request.url);
+  const userId = searchParams.get('userId');
+
+  if (!userId) {
+    return NextResponse.json({ error: 'Se requiere el ID del usuario.' }, { status: 400 });
+  }
+
+  // Delete profile DB record
+  await adminClient.from('profiles').delete().eq('id', userId);
+
+  // Delete Supabase Auth User
+  const { error: deleteAuthError } = await adminClient.auth.admin.deleteUser(userId);
+  if (deleteAuthError) {
+    console.error('Error al borrar de Auth:', deleteAuthError);
+  }
+
+  return NextResponse.json({ success: true, deletedId: userId });
+}

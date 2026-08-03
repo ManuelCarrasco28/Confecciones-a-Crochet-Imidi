@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Scissors, Send, Sparkles, CheckCircle2, Phone, AlertCircle } from 'lucide-react';
+import { Scissors, Send, CheckCircle2, Phone, AlertCircle } from 'lucide-react';
 import { CustomOrderRequest, YARN_OPTIONS, COLOR_OPTIONS } from '@/lib/types';
 import { generateWhatsAppCustomOrderLink, isValidPeruPhone, isValidFullName, normalizePeruPhone } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
@@ -20,7 +20,7 @@ export function CustomOrderSection() {
   });
 
   const [honeypot, setHoneypot] = useState('');
-  const [acceptDataPolicy, setAcceptDataPolicy] = useState(true);
+  const [acceptDataPolicy, setAcceptDataPolicy] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [submitted, setSubmitted] = useState(false);
 
@@ -41,13 +41,18 @@ export function CustomOrderSection() {
       return;
     }
 
+    if (formData.serviceType === 'prenda_medida' && (!formData.measurements || formData.measurements.trim().length < 2)) {
+      setErrorMsg('Por favor indica tus medidas o talla para la confección a pedido (ej. Busto 90cm, largo 55cm).');
+      return;
+    }
+
     if (!formData.details || formData.details.trim().length < 10) {
       setErrorMsg('Por favor proporciona una descripción más detallada del pedido o arreglo (mínimo 10 caracteres).');
       return;
     }
 
     if (!acceptDataPolicy) {
-      setErrorMsg('Debes aceptar el uso de tus datos para la coordinación de la cotización.');
+      setErrorMsg('Debes aceptar el uso de tus datos para la coordinación de la cotización por WhatsApp.');
       return;
     }
 
@@ -89,7 +94,7 @@ export function CustomOrderSection() {
           <div className="lg:col-span-5 space-y-6">
             <div className="inline-flex items-center space-x-2 bg-[#E2ECEC] border border-[#437579]/30 text-[#437579] px-3.5 py-1.5 rounded-full text-xs font-bold">
               <Scissors className="w-4 h-4 text-[#D89B53]" />
-              <span>Servicio de Costura y Arreglos $</span>
+              <span>Costura & Arreglos a Medida</span>
             </div>
 
             <h2 className="font-serif text-3xl sm:text-4xl font-bold leading-tight text-[#213B3E]">
@@ -112,7 +117,7 @@ export function CustomOrderSection() {
               <div className="flex items-start space-x-3 text-xs text-[#3E5C60]">
                 <CheckCircle2 className="w-5 h-5 text-[#D97B84] shrink-0 mt-0.5" />
                 <div>
-                  <strong className="text-[#213B3E] block">Arreglos y Entalles de Costura $:</strong>
+                  <strong className="text-[#213B3E] block">Arreglos y Entalles de Costura:</strong>
                   Bastas, entalles de cintura, cambio de cierres, retoque de cuellos y zurcidos finos.
                 </div>
               </div>
@@ -141,7 +146,7 @@ export function CustomOrderSection() {
                     Completa los datos y te responderemos inmediatamente por WhatsApp
                   </p>
                 </div>
-                <Sparkles className="w-6 h-6 text-[#D89B53] hidden sm:block" />
+                <Scissors className="w-6 h-6 text-[#D89B53] hidden sm:block" />
               </div>
 
               {errorMsg && (

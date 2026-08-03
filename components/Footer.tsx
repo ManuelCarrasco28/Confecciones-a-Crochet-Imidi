@@ -87,7 +87,7 @@ export function Footer({ user }: FooterProps) {
               </li>
               <li>
                 <Link href="/arreglos" className="hover:text-[#437579] transition-colors font-medium">
-                  • Costura & Arreglos $
+                  • Costura & Arreglos
                 </Link>
               </li>
               <li>
@@ -116,7 +116,7 @@ export function Footer({ user }: FooterProps) {
               </div>
               <div className="flex items-start space-x-2">
                 <Clock className="w-4 h-4 text-[#437579] shrink-0 mt-0.5" />
-                <span>Lunes a Sábado: 9:00 AM - 7:00 PM</span>
+                <span>Lunes a Sábado: 8:00 AM - 8:00 PM</span>
               </div>
               <div className="flex items-start space-x-2">
                 <MapPin className="w-4 h-4 text-[#D97B84] shrink-0 mt-0.5" />

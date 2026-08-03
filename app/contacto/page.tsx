@@ -6,7 +6,7 @@ import { CartDrawer } from '@/components/CartDrawer';
 import { AuthModal } from '@/components/AuthModal';
 import { Footer } from '@/components/Footer';
 import { CartItem, UserAccount } from '@/lib/types';
-import { STORE_WHATSAPP_NUMBER, STORE_FACEBOOK_URL } from '@/lib/utils';
+import { STORE_WHATSAPP_NUMBER, STORE_FACEBOOK_URL, normalizePeruPhone, isValidFullName, isValidPeruPhone } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { MessageCircle, Phone, Mail, Clock, Send, CheckCircle2 } from 'lucide-react';
 
@@ -63,15 +63,47 @@ export default function ContactoPage() {
     setUser(null);
   };
 
+  const [errorMsg, setErrorMsg] = useState('');
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.message) return;
+    setErrorMsg('');
+
+    const trimmedName = formData.name.trim();
+    const trimmedMessage = formData.message.trim();
+    const trimmedPhone = formData.phone ? normalizePeruPhone(formData.phone) : '';
+    const trimmedEmail = formData.email ? formData.email.trim().toLowerCase() : '';
+
+    if (!isValidFullName(trimmedName)) {
+      setErrorMsg('Por favor ingresa tu nombre y apellido completos (ej. María Carrasco).');
+      return;
+    }
+
+    if (trimmedPhone && !isValidPeruPhone(trimmedPhone)) {
+      setErrorMsg('Si ingresas teléfono, debe tener 9 dígitos y empezar con 9 (ej. 935240485).');
+      return;
+    }
+
+    if (trimmedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      setErrorMsg('Por favor ingresa un correo electrónico válido.');
+      return;
+    }
+
+    if (!trimmedMessage || trimmedMessage.length < 10) {
+      setErrorMsg('El mensaje debe tener al menos 10 caracteres explicativos.');
+      return;
+    }
+
+    if (trimmedMessage.length > 1000) {
+      setErrorMsg('El mensaje no debe superar los 1000 caracteres.');
+      return;
+    }
 
     let text = `¡Hola Confecciones a Crochet Imidi! 📩\nTe escribo desde el formulario de contacto:\n\n`;
-    text += `• Nombre: ${formData.name}\n`;
-    if (formData.email) text += `• Correo: ${formData.email}\n`;
-    if (formData.phone) text += `• Teléfono: ${formData.phone}\n`;
-    text += `• Mensaje: ${formData.message}\n`;
+    text += `• Nombre: ${trimmedName}\n`;
+    if (trimmedEmail) text += `• Correo: ${trimmedEmail}\n`;
+    if (trimmedPhone) text += `• Teléfono: ${trimmedPhone}\n`;
+    text += `• Mensaje: ${trimmedMessage}\n`;
 
     const whatsappUrl = `https://wa.me/${STORE_WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`;
     window.open(whatsappUrl, '_blank');
@@ -170,7 +202,7 @@ export default function ContactoPage() {
                   </div>
                   <div>
                     <h3 className="font-bold text-sm text-[#213B3E]">Horarios de Atención</h3>
-                    <p className="text-xs text-[#597477] mt-0.5">Lunes a Sábado: 9:00 AM – 7:00 PM</p>
+                    <p className="text-xs text-[#597477] mt-0.5">Lunes a Sábado: 8:00 AM – 8:00 PM</p>
                     <p className="text-[11px] text-emerald-600 font-semibold mt-1">Respuestas inmediatas vía WhatsApp y Facebook</p>
                   </div>
                 </div>
@@ -181,6 +213,12 @@ export default function ContactoPage() {
             <div className="lg:col-span-7 bg-white p-8 rounded-3xl border border-[#C4D8D9] shadow-lg">
               <h2 className="font-serif text-xl font-bold text-[#213B3E] mb-1">Envía tu Mensaje Directo</h2>
               <p className="text-xs text-[#597477] mb-6">Te responderemos al instante por WhatsApp o correo electrónico.</p>
+
+              {errorMsg && (
+                <div className="mb-4 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold">
+                  ⚠️ {errorMsg}
+                </div>
+              )}
 
               {sent ? (
                 <div className="text-center py-10 space-y-3">

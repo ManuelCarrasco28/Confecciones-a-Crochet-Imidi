@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { TESTIMONIALS } from '@/lib/mockData';
-import { Star, HeartHandshake, Sparkles, Scissors, Award } from 'lucide-react';
+import { Star, HeartHandshake, Scissors, Award } from 'lucide-react';
 
 export function TestimonialsSection() {
   return (
@@ -62,7 +62,7 @@ export function TestimonialsSection() {
         <div className="mt-16 grid grid-cols-1 sm:grid-cols-3 gap-6 pt-12 border-t border-[#C4D8D9]">
           <div className="flex items-center space-x-4 bg-white p-4 rounded-2xl border border-[#C4D8D9] shadow-sm">
             <div className="p-3 bg-[#E2ECEC] text-[#437579] rounded-xl">
-              <Sparkles className="w-6 h-6 text-[#D89B53]" />
+              <Award className="w-6 h-6 text-[#D89B53]" />
             </div>
             <div>
               <h4 className="font-serif text-sm font-bold text-[#213B3E]">Crochet 100% Manual</h4>
@@ -75,7 +75,7 @@ export function TestimonialsSection() {
               <Scissors className="w-6 h-6" />
             </div>
             <div>
-              <h4 className="font-serif text-sm font-bold text-[#213B3E]">Servicio de Costura $</h4>
+              <h4 className="font-serif text-sm font-bold text-[#213B3E]">Servicio de Costura</h4>
               <p className="text-xs text-[#597477]">Entalles y arreglos a tu medida</p>
             </div>
           </div>

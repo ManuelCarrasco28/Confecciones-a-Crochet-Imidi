@@ -78,8 +78,10 @@ export interface CustomOrderRow {
   full_name: string;
   phone: string;
   service_type: string;
-  garment_type: string;
+  garment_type?: string;
   city?: string;
   measurements?: string;
+  selected_yarn?: string;
+  selected_color?: string;
   details: string;
 }

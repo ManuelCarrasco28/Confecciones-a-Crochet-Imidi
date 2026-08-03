@@ -3,7 +3,7 @@
 import React from 'react';
 import { Product } from '@/lib/types';
 import { generateWhatsAppProductLink, formatCurrency } from '@/lib/utils';
-import { MessageCircle, Eye, ShoppingBag, Sparkles } from 'lucide-react';
+import { MessageCircle, Eye, ShoppingBag, Heart } from 'lucide-react';
 
 interface ProductCardProps {
   product: Product;
@@ -42,7 +42,7 @@ export function ProductCard({ product, onOpenModal, onAddToCart }: ProductCardPr
 
         {/* Badge Confección bajo Pedido */}
         <span className="absolute top-2 sm:top-3 right-2 sm:right-3 bg-[#437579]/90 backdrop-blur-md text-white text-[8px] sm:text-[9px] font-extrabold px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full shadow-sm flex items-center gap-1">
-          <Sparkles className="w-2 h-2 sm:w-2.5 sm:h-2.5 text-[#D89B53]" />
+          <Heart className="w-2 h-2 sm:w-2.5 sm:h-2.5 text-rose-300 fill-rose-300" />
           <span>A Pedido</span>
         </span>
 

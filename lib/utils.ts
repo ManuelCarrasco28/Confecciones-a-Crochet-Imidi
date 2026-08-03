@@ -49,8 +49,8 @@ export function isValidFullName(name: string): boolean {
   const trimmed = name.trim();
   const words = trimmed.split(/\s+/);
   if (words.length < 2) return false;
-  // Solo letras (incluidas tildes y ñ) y espacios
-  return /^[a-zA-ZáéíóúñÁÉÍÓÚÑ\s]{3,80}$/.test(trimmed);
+  // Permite letras (con tildes/ñ), espacios, apóstrofes y guiones en apellidos válidos
+  return /^[a-zA-ZáéíóúñÁÉÍÓÚÑ'\-\s]{3,80}$/.test(trimmed);
 }
 
 /**
@@ -78,9 +78,9 @@ export function isValidPassword(password: string): boolean {
 export function generateWhatsAppProductLink(product: Product): string {
   let text = `¡Hola Confecciones a Crochet Imidi! 🧶\nQuisiera consultar disponibilidad y hacer un pedido de:\n\n`;
   text += `*Prenda:* ${product.name}\n`;
-  text += `*Precio:* S/ ${product.price.toFixed(2)}\n`;
+  text += `*Precio Referencial:* S/ ${product.price.toFixed(2)}\n`;
   text += `*Categoría:* ${product.category}\n\n`;
-  text += `¿Tienen stock disponible o cuál es el tiempo de confección a medida? ¡Gracias!`;
+  text += `¿Tienen disponibilidad o cuál es el tiempo estimado de confección a mano? ¡Gracias!`;
 
   return `https://wa.me/${STORE_WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`;
 }
@@ -88,7 +88,7 @@ export function generateWhatsAppProductLink(product: Product): string {
 export function generateWhatsAppCartLink(cart: { product: Product; quantity: number; selectedSize?: string; selectedColor?: string; selectedYarn?: string; customNotes?: string }[]): string {
   if (!cart || cart.length === 0) return `https://wa.me/${STORE_WHATSAPP_NUMBER}`;
 
-  let text = '¡Hola Confecciones a Crochet Imidi! 🧶\nQuisiera realizar el siguiente pedido:\n\n';
+  let text = '¡Hola Confecciones a Crochet Imidi! 🧶\nQuisiera solicitar el siguiente pedido de prendas a mano:\n\n';
   
   let total = 0;
   cart.forEach((item, index) => {
@@ -100,13 +100,13 @@ export function generateWhatsAppCartLink(cart: { product: Product; quantity: num
     if (item.selectedYarn) text += `   • Tipo de Hilo: ${item.selectedYarn}\n`;
     if (item.selectedColor) text += `   • Color: ${item.selectedColor}\n`;
     if (item.selectedSize) text += `   • Talla: ${item.selectedSize}\n`;
-    if (item.customNotes) text += `   • Nota especial: ${item.customNotes}\n`;
+    if (item.customNotes) text += `   • Indicaciones: ${item.customNotes}\n`;
     text += `   • Subtotal: S/ ${subtotal.toFixed(2)}\n\n`;
   });
 
   text += `---------------------------------\n`;
-  text += `*TOTAL A PAGAR: S/ ${total.toFixed(2)}*\n\n`;
-  text += `Quedo a la espera de la confirmación y los datos de pago/envío. ¡Gracias!`;
+  text += `*TOTAL ESTIMADO (REFERENCIAL): S/ ${total.toFixed(2)}*\n\n`;
+  text += `Quedo a la espera de su confirmación para coordinar el tiempo de tejido y la entrega. ¡Muchas gracias!`;
 
   return `https://wa.me/${STORE_WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`;
 }

@@ -15,7 +15,7 @@ import { Toast } from '@/components/Toast';
 import { Product, CartItem, YARN_OPTIONS, UserAccount, YarnType, CategoryType } from '@/lib/types';
 import { INITIAL_PRODUCTS } from '@/lib/mockData';
 import { createClient } from '@/lib/supabase/client';
-import { Sparkles, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Award, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function HomePage() {
   const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
@@ -197,12 +197,13 @@ export default function HomePage() {
           item.product.id === product.id &&
           item.selectedSize === selectedSize &&
           item.selectedColor === selectedColor &&
-          item.selectedYarn === selectedYarn
+          item.selectedYarn === selectedYarn &&
+          (item.customNotes || '') === (customNotes || '')
       );
 
       if (existingIndex > -1) {
         const updated = [...prevCart];
-        updated[existingIndex].quantity += 1;
+        updated[existingIndex].quantity = Math.min(50, updated[existingIndex].quantity + 1);
         return updated;
       } else {
         return [
@@ -277,7 +278,7 @@ export default function HomePage() {
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-8">
               <div>
                 <div className="inline-flex items-center space-x-2 bg-white border border-[#C4D8D9] px-3.5 py-1 rounded-full text-xs font-bold text-[#437579] shadow-sm mb-2">
-                  <Sparkles className="w-4 h-4 text-[#D89B53] animate-pulse" />
+                  <Award className="w-4 h-4 text-[#D89B53]" />
                   <span>Catálogo Animado & Continuo</span>
                 </div>
                 <h2 className="font-serif text-2xl sm:text-3xl font-bold text-[#213B3E]">
