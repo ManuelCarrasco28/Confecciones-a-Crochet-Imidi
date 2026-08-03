@@ -1,26 +1,47 @@
 @import "tailwindcss";
 
+@theme {
+  --font-serif: var(--font-playfair), Georgia, serif;
+  --font-sans: var(--font-jakarta), system-ui, sans-serif;
+  
+  /* Paleta Oficial extraída del Logo de Confecciones a Crochet Imidi */
+  --color-teal-50: #f2f7f7;
+  --color-teal-100: #e2ecec;
+  --color-teal-200: #c4d8d9;
+  --color-teal-500: #437579;
+  --color-teal-600: #335c60;
+  --color-teal-700: #244246;
+
+  --color-rose-50: #fdf5f6;
+  --color-rose-100: #f9ebe6;
+  --color-rose-400: #e28e96;
+  --color-rose-500: #d97b84;
+  --color-rose-600: #c66973;
+
+  --color-ochre-400: #e5ad68;
+  --color-ochre-500: #d89b53;
+
+  --color-cream-50: #fdfbf7;
+  --color-cream-100: #f8f5ef;
+  --color-cream-200: #ede7dc;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --background: #f8f5ef;
+  --foreground: #213b3e;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+}
+
+/* Ocultar scrollbar en carruseles de pestañas */
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
