@@ -10,6 +10,7 @@ import { CartDrawer } from '@/components/CartDrawer';
 import { TestimonialsSection } from '@/components/TestimonialsSection';
 import { Footer } from '@/components/Footer';
 import { AuthModal } from '@/components/AuthModal';
+import { Toast } from '@/components/Toast';
 
 import { Product, CartItem, YARN_OPTIONS, UserAccount, YarnType, CategoryType } from '@/lib/types';
 import { INITIAL_PRODUCTS } from '@/lib/mockData';
@@ -19,6 +20,7 @@ import { Sparkles, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 export default function HomePage() {
   const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   
   const [cart, setCart] = useState<CartItem[]>(() => {
     if (typeof window === 'undefined') return [];
@@ -216,6 +218,8 @@ export default function HomePage() {
         ];
       }
     });
+
+    setToastMessage(`¡"${product.name}" añadido a tus Encargos! 🛍️`);
   };
 
   const handleUpdateQuantity = (index: number, newQty: number) => {
@@ -414,6 +418,12 @@ export default function HomePage() {
         isOpen={isAuthOpen}
         onClose={() => setIsAuthOpen(false)}
         onLoginSuccess={handleLoginSuccess}
+      />
+
+      {/* Toast de Notificación */}
+      <Toast
+        message={toastMessage}
+        onClose={() => setToastMessage(null)}
       />
 
     </div>

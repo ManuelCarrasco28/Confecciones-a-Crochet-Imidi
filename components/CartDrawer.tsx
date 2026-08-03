@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { CartItem } from '@/lib/types';
 import { generateWhatsAppCartLink, formatCurrency } from '@/lib/utils';
 import { X, Trash2, Plus, Minus, MessageCircle, ShoppingBag, ShieldCheck } from 'lucide-react';
@@ -136,6 +137,15 @@ export function CartDrawer({
                   {formatCurrency(total)}
                 </span>
               </div>
+
+              <Link
+                href="/encargos"
+                onClick={onClose}
+                className="w-full flex items-center justify-center space-x-2 bg-[#437579] hover:bg-[#335C60] text-white font-bold py-3 px-4 rounded-xl shadow-sm transition-all text-xs uppercase tracking-wider"
+              >
+                <ShoppingBag className="w-4 h-4 text-[#D89B53]" />
+                <span>Elegir Talla e Hilos en /encargos →</span>
+              </Link>
 
               <a
                 href={whatsappUrl}

@@ -55,7 +55,7 @@ export function Navbar({
   const isAdminUser = user?.role === 'admin';
 
   return (
-    <header className="sticky top-0 z-40 bg-[#F8F5EF]/95 backdrop-blur-md text-[#213B3E] border-b border-[#C4D8D9] shadow-sm">
+    <header className="sticky top-0 z-50 bg-[#F8F5EF]/95 backdrop-blur-md text-[#213B3E] border-b border-[#C4D8D9] shadow-md">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-14 sm:h-20 gap-2 sm:gap-4">
           
@@ -108,7 +108,7 @@ export function Navbar({
               <span>Catálogo</span>
             </Link>
 
-            {/* Costura & Arreglos $ (Estilo blanco idéntico a las demás pestañas) */}
+            {/* Costura & Arreglos $ */}
             <Link
               href="/arreglos"
               className={`inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-full border transition-all shadow-sm hover:scale-105 ${
@@ -195,21 +195,25 @@ export function Navbar({
               </button>
             )}
 
-            {/* Lista de Encargos */}
-            <button
-              onClick={onOpenCart}
-              className="relative p-2 sm:p-2.5 rounded-full bg-[#E2ECEC] hover:bg-[#C4D8D9] text-[#213B3E] hover:text-[#437579] transition-all border border-[#437579]/30 flex items-center gap-1 px-2.5 sm:px-3 whitespace-nowrap"
+            {/* Lista de Encargos - Navega a /encargos */}
+            <Link
+              href="/encargos"
+              className={`relative p-2 sm:p-2.5 rounded-full transition-all border flex items-center gap-1 px-2.5 sm:px-3 whitespace-nowrap shadow-sm ${
+                pathname === '/encargos'
+                  ? 'bg-[#437579] text-white border-[#437579] shadow-md'
+                  : 'bg-[#E2ECEC] hover:bg-[#C4D8D9] text-[#213B3E] hover:text-[#437579] border-[#437579]/30'
+              }`}
               aria-label="Ver lista de encargos"
-              title="Lista de Encargos a WhatsApp"
+              title="Configurar Lista de Encargos a Medida"
             >
-              <ShoppingBag className="w-4 h-4 sm:w-5 sm:h-5 text-[#437579]" />
-              <span className="hidden sm:inline text-xs font-bold text-[#213B3E]">Encargos</span>
+              <ShoppingBag className={`w-4 h-4 sm:w-5 sm:h-5 ${pathname === '/encargos' ? 'text-white' : 'text-[#437579]'}`} />
+              <span className="hidden sm:inline text-xs font-bold">Encargos</span>
               {totalItemsCount > 0 && (
                 <span className="bg-[#D97B84] text-white text-[10px] sm:text-xs font-extrabold w-4 h-4 sm:w-5 sm:h-5 rounded-full flex items-center justify-center shadow-md ml-0.5 animate-pulse">
                   {totalItemsCount}
                 </span>
               )}
-            </button>
+            </Link>
 
             {/* Botón WhatsApp Directo */}
             <a

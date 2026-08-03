@@ -54,9 +54,9 @@ body {
   scrollbar-width: none;
 }
 
-/* Prevent horizontal overflow on mobile */
+/* Prevent horizontal overflow on mobile without breaking position: sticky */
 html, body {
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 /* Better touch targets for mobile */

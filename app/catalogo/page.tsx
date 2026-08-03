@@ -8,6 +8,7 @@ import { ProductModal } from '@/components/ProductModal';
 import { CartDrawer } from '@/components/CartDrawer';
 import { Footer } from '@/components/Footer';
 import { AuthModal } from '@/components/AuthModal';
+import { Toast } from '@/components/Toast';
 
 import { Product, CartItem, CategoryType, UserAccount, YarnType } from '@/lib/types';
 import { INITIAL_PRODUCTS } from '@/lib/mockData';
@@ -20,6 +21,7 @@ function CatalogoContent() {
   const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
   const [selectedCategory, setSelectedCategory] = useState<CategoryType>(catParam);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const [cart, setCart] = useState<CartItem[]>(() => {
     if (typeof window === 'undefined') return [];
@@ -146,6 +148,8 @@ function CatalogoContent() {
         ];
       }
     });
+
+    setToastMessage(`¡"${product.name}" añadido a tus Encargos! 🛍️`);
   };
 
   const handleUpdateQuantity = (index: number, newQty: number) => {
@@ -217,6 +221,12 @@ function CatalogoContent() {
         isOpen={isAuthOpen}
         onClose={() => setIsAuthOpen(false)}
         onLoginSuccess={(u) => setUser(u)}
+      />
+
+      {/* Toast de Notificación */}
+      <Toast
+        message={toastMessage}
+        onClose={() => setToastMessage(null)}
       />
     </div>
   );
