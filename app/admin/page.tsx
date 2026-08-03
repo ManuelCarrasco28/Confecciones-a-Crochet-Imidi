@@ -28,6 +28,7 @@ import {
   Store,
   Save,
   RotateCcw,
+  Menu,
 } from 'lucide-react';
 import { Product, YARN_OPTIONS, COLOR_OPTIONS, CategoryType, UserAccount, CustomOrderRow } from '@/lib/types';
 import { INITIAL_PRODUCTS } from '@/lib/mockData';
@@ -39,6 +40,7 @@ export default function AdminPage() {
 
   // Tema: Inicia SIEMPRE en Modo Claro (Blanco) por defecto
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [mobileAdminNavOpen, setMobileAdminNavOpen] = useState(false);
 
   // Validación de Autenticación
   const [checkingAuth, setCheckingAuth] = useState(true);
@@ -492,7 +494,7 @@ export default function AdminPage() {
       
       <div className="flex flex-1 min-h-screen overflow-hidden">
         
-        {/* Sidebar Lateral Fijo */}
+        {/* Sidebar Lateral Fijo (Desktop) */}
         <aside className={`w-64 ${sidebarBg} border-r flex flex-col justify-between p-4 shrink-0 hidden md:flex transition-colors`}>
           <div className="space-y-6">
             
@@ -630,14 +632,171 @@ export default function AdminPage() {
           </div>
         </aside>
 
+        {/* Sidebar Lateral Drawer (Mobile Overlay) */}
+        {mobileAdminNavOpen && (
+          <div className="fixed inset-0 z-50 md:hidden">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setMobileAdminNavOpen(false)} />
+            <aside className={`absolute top-0 left-0 bottom-0 w-72 ${sidebarBg} border-r flex flex-col justify-between p-4 shadow-2xl z-10 overflow-y-auto safe-bottom animate-in slide-in-from-left duration-200`}>
+              <div className="space-y-6">
+                
+                <div className="flex items-center justify-between px-2 py-1 border-b border-slate-800/20 pb-3">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-9 h-9 rounded-full bg-white p-0.5 border border-[#437579] overflow-hidden shrink-0 shadow-md">
+                      <img src="/img/logo.png" alt="Logo Imidi" className="w-full h-full object-cover" />
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className={`text-xs font-bold truncate ${isDark ? 'text-white' : 'text-[#162C2E]'}`}>Confecciones Imidi</h3>
+                      <span className="text-[9px] text-[#437579] font-bold block truncate">{currentUser?.email}</span>
+                    </div>
+                  </div>
+                  <button onClick={() => setMobileAdminNavOpen(false)} className="p-1 rounded-lg text-slate-400 hover:text-rose-500">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <nav className="space-y-1">
+                  <span className={`px-3 text-[10px] font-extrabold uppercase tracking-wider block mb-2 ${subText}`}>
+                    VENTAS & MÉTRICAS
+                  </span>
+
+                  <button
+                    onClick={() => { setActiveTab('dashboard'); setMobileAdminNavOpen(false); }}
+                    className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                      activeTab === 'dashboard'
+                        ? 'bg-[#437579] text-white shadow-md'
+                        : isDark ? 'text-slate-300 hover:bg-slate-800 hover:text-white' : 'text-[#2D4D51] hover:bg-[#DDE8E8] hover:text-[#162C2E]'
+                    }`}
+                  >
+                    <LayoutDashboard className="w-4 h-4 text-emerald-500" />
+                    <span>Dashboard Principal</span>
+                  </button>
+
+                  <button
+                    onClick={() => { setActiveTab('pedidos'); setMobileAdminNavOpen(false); }}
+                    className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                      activeTab === 'pedidos'
+                        ? 'bg-[#437579] text-white shadow-md'
+                        : isDark ? 'text-slate-300 hover:bg-slate-800 hover:text-white' : 'text-[#2D4D51] hover:bg-[#DDE8E8] hover:text-[#162C2E]'
+                    }`}
+                  >
+                    <ShoppingBag className="w-4 h-4 text-sky-500" />
+                    <span>Pedidos WhatsApp</span>
+                  </button>
+
+                  <span className={`px-3 text-[10px] font-extrabold uppercase tracking-wider block pt-4 mb-2 ${subText}`}>
+                    INVENTARIO & CATÁLOGO
+                  </span>
+
+                  <button
+                    onClick={() => { setActiveTab('productos'); setMobileAdminNavOpen(false); }}
+                    className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                      activeTab === 'productos'
+                        ? 'bg-[#437579] text-white shadow-md'
+                        : isDark ? 'text-slate-300 hover:bg-slate-800 hover:text-white' : 'text-[#2D4D51] hover:bg-[#DDE8E8] hover:text-[#162C2E]'
+                    }`}
+                  >
+                    <Package className="w-4 h-4 text-amber-500" />
+                    <span>Productos ({products.length})</span>
+                  </button>
+
+                  <button
+                    onClick={() => { setActiveTab('categorias'); setMobileAdminNavOpen(false); }}
+                    className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                      activeTab === 'categorias'
+                        ? 'bg-[#437579] text-white shadow-md'
+                        : isDark ? 'text-slate-300 hover:bg-slate-800 hover:text-white' : 'text-[#2D4D51] hover:bg-[#DDE8E8] hover:text-[#162C2E]'
+                    }`}
+                  >
+                    <FolderTree className="w-4 h-4 text-indigo-500" />
+                    <span>Gestión de Categorías</span>
+                  </button>
+
+                  <button
+                    onClick={() => { setActiveTab('solicitudes'); setMobileAdminNavOpen(false); }}
+                    className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                      activeTab === 'solicitudes'
+                        ? 'bg-[#437579] text-white shadow-md'
+                        : isDark ? 'text-slate-300 hover:bg-slate-800 hover:text-white' : 'text-[#2D4D51] hover:bg-[#DDE8E8] hover:text-[#162C2E]'
+                    }`}
+                  >
+                    <Scissors className="w-4 h-4 text-[#D97B84]" />
+                    <span>Solicitudes a Medida ({customRequests.length})</span>
+                  </button>
+
+                  <span className={`px-3 text-[10px] font-extrabold uppercase tracking-wider block pt-4 mb-2 ${subText}`}>
+                    ADMINISTRACIÓN & CONFIG
+                  </span>
+
+                  <button
+                    onClick={() => { setActiveTab('config'); setMobileAdminNavOpen(false); }}
+                    className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                      activeTab === 'config'
+                        ? 'bg-[#437579] text-white shadow-md'
+                        : isDark ? 'text-slate-300 hover:bg-slate-800 hover:text-white' : 'text-[#2D4D51] hover:bg-[#DDE8E8] hover:text-[#162C2E]'
+                    }`}
+                  >
+                    <Store className="w-4 h-4 text-indigo-600" />
+                    <span>Módulo de Negocio</span>
+                  </button>
+
+                  <button
+                    onClick={() => { setActiveTab('clientes'); setMobileAdminNavOpen(false); }}
+                    className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                      activeTab === 'clientes'
+                        ? 'bg-[#437579] text-white shadow-md'
+                        : isDark ? 'text-slate-300 hover:bg-slate-800 hover:text-white' : 'text-[#2D4D51] hover:bg-[#DDE8E8] hover:text-[#162C2E]'
+                    }`}
+                  >
+                    <Users className="w-4 h-4 text-teal-500" />
+                    <span>Gestión de Clientes ({clientsList.length})</span>
+                  </button>
+
+                  <button
+                    onClick={() => { setActiveTab('usuarios'); setMobileAdminNavOpen(false); }}
+                    className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                      activeTab === 'usuarios'
+                        ? 'bg-[#437579] text-white shadow-md'
+                        : isDark ? 'text-slate-300 hover:bg-slate-800 hover:text-white' : 'text-[#2D4D51] hover:bg-[#DDE8E8] hover:text-[#162C2E]'
+                    }`}
+                  >
+                    <UserCheck className="w-4 h-4 text-[#D89B53]" />
+                    <span>Gestión de Usuarios</span>
+                  </button>
+                </nav>
+              </div>
+
+              <div className="pt-4 border-t border-slate-800/20 text-[11px] space-y-2">
+                <Link
+                  href="/"
+                  className={`flex items-center space-x-2 px-3 py-2 rounded-xl font-bold transition-all ${
+                    isDark ? 'bg-slate-800 hover:bg-slate-700 text-white' : 'bg-[#DDE8E8] hover:bg-[#B2CFCF] text-[#162C2E]'
+                  }`}
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  <span>Volver a la Tienda</span>
+                </Link>
+              </div>
+            </aside>
+          </div>
+        )}
+
         {/* Área Principal */}
         <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
           
-          <header className={`h-16 border-b px-6 flex items-center justify-between ${headerBg} shrink-0 transition-colors`}>
-            <div className="flex items-center space-x-3">
-              <h1 className="text-base font-bold flex items-center gap-2">
-                <ShieldCheck className="w-5 h-5 text-emerald-500" />
-                <span className={isDark ? 'text-white' : 'text-[#162C2E]'}>
+          <header className={`h-14 sm:h-16 border-b px-3 sm:px-6 flex items-center justify-between ${headerBg} shrink-0 transition-colors`}>
+            <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
+              {/* Botón Hamburger para Móvil */}
+              <button
+                onClick={() => setMobileAdminNavOpen(!mobileAdminNavOpen)}
+                className={`md:hidden p-2 rounded-xl border ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-[#B2CFCF] text-[#162C2E]'}`}
+                aria-label="Menú Admin"
+              >
+                {mobileAdminNavOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              </button>
+
+              <h1 className="text-xs sm:text-base font-bold flex items-center gap-1.5 sm:gap-2 truncate">
+                <ShieldCheck className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-500 shrink-0" />
+                <span className={`truncate ${isDark ? 'text-white' : 'text-[#162C2E]'}`}>
                   {activeTab === 'dashboard' && 'Dashboard Principal / Ventas'}
                   {activeTab === 'productos' && 'Gestión de Productos & Catálogo'}
                   {activeTab === 'categorias' && 'Gestión de Categorías de Tejidos'}
@@ -710,12 +869,12 @@ export default function AdminPage() {
             </div>
           </header>
 
-          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          <div className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
             
             {/* 1. DASHBOARD */}
             {activeTab === 'dashboard' && (
               <div className="space-y-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                   <div className={`${cardBg} p-5 rounded-2xl flex items-center justify-between shadow-sm`}>
                     <div>
                       <span className={`text-xs uppercase tracking-wider ${subText}`}>Productos en BD</span>

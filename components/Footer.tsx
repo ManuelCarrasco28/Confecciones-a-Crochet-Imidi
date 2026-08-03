@@ -20,27 +20,27 @@ export function Footer({ user }: FooterProps) {
   const isAdminUser = user?.role === 'admin';
 
   return (
-    <footer className="bg-white text-[#213B3E] border-t border-[#C4D8D9] pt-16 pb-12">
+    <footer className="bg-white text-[#213B3E] border-t border-[#C4D8D9] pt-10 sm:pt-16 pb-8 sm:pb-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 pb-12 border-b border-[#E2ECEC]">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 sm:gap-10 pb-8 sm:pb-12 border-b border-[#E2ECEC]">
           
           {/* Columna 1: Marca & Descripción */}
           <div className="space-y-4">
             <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-[#437579] shadow-md bg-white shrink-0">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full overflow-hidden border-2 border-[#437579] shadow-md bg-white shrink-0">
                 <img
                   src="/img/logo.png"
                   alt="Confecciones a Crochet Imidi Logo"
                   className="w-full h-full object-cover"
                 />
               </div>
-              <h3 className="font-serif text-lg font-bold text-[#213B3E]">
+              <h3 className="font-serif text-base sm:text-lg font-bold text-[#213B3E]">
                 Confecciones Imidi
               </h3>
             </div>
             
-            <p className="text-[#597477] text-xs leading-relaxed font-normal">
+            <p className="text-[#597477] text-[11px] sm:text-xs leading-relaxed font-normal">
               Blusas, vestidos, diademas, gorros y tapetes hechos a mano a crochet, además de servicio profesional de costura y arreglos a tu medida.
             </p>
 
@@ -49,7 +49,7 @@ export function Footer({ user }: FooterProps) {
                 href={`https://wa.me/${STORE_WHATSAPP_NUMBER}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center space-x-1.5 p-2 px-3 bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white rounded-xl transition-all border border-emerald-200 text-xs font-bold shadow-sm"
+                className="inline-flex items-center space-x-1.5 p-2 px-3 bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white rounded-xl transition-all border border-emerald-200 text-[11px] sm:text-xs font-bold shadow-sm"
                 aria-label="WhatsApp Directo"
               >
                 <MessageCircle className="w-4 h-4" />
@@ -60,7 +60,7 @@ export function Footer({ user }: FooterProps) {
                 href={STORE_FACEBOOK_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center space-x-1.5 p-2 px-3 bg-sky-50 text-sky-700 hover:bg-sky-600 hover:text-white rounded-xl transition-all border border-sky-200 text-xs font-bold shadow-sm"
+                className="inline-flex items-center space-x-1.5 p-2 px-3 bg-sky-50 text-sky-700 hover:bg-sky-600 hover:text-white rounded-xl transition-all border border-sky-200 text-[11px] sm:text-xs font-bold shadow-sm"
                 aria-label="Página de Facebook"
               >
                 <FacebookIcon className="w-4 h-4" />
@@ -151,14 +151,14 @@ export function Footer({ user }: FooterProps) {
         </div>
 
         {/* Copyright & Acceso Admin Exclusivo */}
-        <div className="pt-8 flex flex-col sm:flex-row justify-between items-center text-xs text-[#597477] space-y-3 sm:space-y-0">
-          <p>© {new Date().getFullYear()} Confecciones a Crochet Imidi. Todos los derechos reservados.</p>
+        <div className="pt-6 sm:pt-8 flex flex-col sm:flex-row justify-between items-center text-[11px] sm:text-xs text-[#597477] space-y-3 sm:space-y-0">
+          <p className="text-center sm:text-left">© {new Date().getFullYear()} Confecciones a Crochet Imidi. Todos los derechos reservados.</p>
           
           <div className="flex items-center space-x-4 text-[#213B3E]">
             <div className="flex items-center space-x-1">
               <span>Hecho con</span>
               <Heart className="w-3.5 h-3.5 text-[#D97B84] fill-[#D97B84]" />
-              <span>para vestir con estilo artesanal</span>
+              <span className="hidden sm:inline">para vestir con estilo artesanal</span>
             </div>
 
             {isAdminUser && (

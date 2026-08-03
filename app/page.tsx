@@ -284,30 +284,30 @@ export default function HomePage() {
             </div>
 
             {/* Pista del Carrusel Cíclico Infinito con Botones Flotantes Laterales */}
-            <div className="relative group">
+            <div className="relative group px-2 sm:px-0">
               
               {/* Botón Flotante Lateral Izquierda (Atrás) */}
               <button
                 onClick={prevSlide}
-                className="absolute -left-4 sm:-left-6 top-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-full bg-white text-[#437579] border-2 border-[#437579] shadow-xl hover:scale-110 hover:bg-[#437579] hover:text-white flex items-center justify-center transition-all"
+                className="absolute left-0 sm:-left-6 top-1/2 -translate-y-1/2 z-20 w-9 h-9 sm:w-12 sm:h-12 rounded-full bg-white/90 sm:bg-white text-[#437579] border-2 border-[#437579] shadow-xl hover:scale-110 hover:bg-[#437579] hover:text-white flex items-center justify-center transition-all"
                 aria-label="Flecha Atrás"
                 title="Atrás"
               >
-                <ChevronLeft className="w-7 h-7 stroke-[2.5]" />
+                <ChevronLeft className="w-5 h-5 sm:w-7 sm:h-7 stroke-[2.5]" />
               </button>
 
               {/* Botón Flotante Lateral Derecha (Adelante) */}
               <button
                 onClick={nextSlide}
-                className="absolute -right-4 sm:-right-6 top-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-full bg-[#437579] text-white border-2 border-[#437579] shadow-xl hover:scale-110 hover:bg-[#335C60] flex items-center justify-center transition-all"
+                className="absolute right-0 sm:-right-6 top-1/2 -translate-y-1/2 z-20 w-9 h-9 sm:w-12 sm:h-12 rounded-full bg-[#437579]/90 sm:bg-[#437579] text-white border-2 border-[#437579] shadow-xl hover:scale-110 hover:bg-[#335C60] flex items-center justify-center transition-all"
                 aria-label="Flecha Adelante"
                 title="Adelante"
               >
-                <ChevronRight className="w-7 h-7 stroke-[2.5]" />
+                <ChevronRight className="w-5 h-5 sm:w-7 sm:h-7 stroke-[2.5]" />
               </button>
 
-              {/* Grilla Cíclica de 4 Productos Continuos (Sin espacios vacíos) */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 py-2 px-1 transition-all duration-500">
+              {/* Grilla Cíclica de Productos Continuos */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 py-2 px-1 transition-all duration-500">
                 {visibleProducts.map((prod, idx) => (
                   <ProductCard
                     key={`${prod.id}-${idx}`}
@@ -321,13 +321,13 @@ export default function HomePage() {
 
             {/* Indicadores de Puntos (Dots) Cíclicos */}
             {products.length > 1 && (
-              <div className="flex justify-center items-center space-x-2 mt-8">
+              <div className="flex justify-center items-center space-x-1.5 sm:space-x-2 mt-6 sm:mt-8 overflow-x-auto max-w-full py-1">
                 {products.map((_, idx) => (
                   <button
                     key={idx}
                     onClick={() => setCarouselIndex(idx)}
-                    className={`h-2.5 rounded-full transition-all duration-300 ${
-                      carouselIndex === idx ? 'w-8 bg-[#437579]' : 'w-2.5 bg-[#C4D8D9] hover:bg-[#437579]/60'
+                    className={`h-2 sm:h-2.5 rounded-full transition-all duration-300 shrink-0 ${
+                      carouselIndex === idx ? 'w-6 sm:w-8 bg-[#437579]' : 'w-2 sm:w-2.5 bg-[#C4D8D9] hover:bg-[#437579]/60'
                     }`}
                     aria-label={`Ir a prenda ${idx + 1}`}
                   />

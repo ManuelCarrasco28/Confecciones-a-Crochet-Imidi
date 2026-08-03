@@ -29,6 +29,11 @@ export function Navbar({
 
   const totalItemsCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
+  // Cerrar menú móvil al cambiar de ruta
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
+
   // Cerrar el dropdown al hacer clic fuera
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -41,20 +46,30 @@ export function Navbar({
     return () => document.removeEventListener('click', handleClickOutside);
   }, []);
 
+  // Bloquear scroll del body cuando menú está abierto
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [mobileMenuOpen]);
+
   const firstName = user?.name ? user.name.split(' ')[0] : 'Mi Cuenta';
   const isAdminUser = user?.role === 'admin';
 
   return (
     <header className="sticky top-0 z-40 bg-[#F8F5EF]/95 backdrop-blur-md text-[#213B3E] border-b border-[#C4D8D9] shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-20 gap-4">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-14 sm:h-20 gap-2 sm:gap-4">
           
           {/* Logo Oficial con enlace a la raíz / */}
           <Link
             href="/"
-            className="flex items-center space-x-3 cursor-pointer shrink-0"
+            className="flex items-center space-x-2 sm:space-x-3 cursor-pointer shrink-0"
           >
-            <div className="relative w-11 h-11 sm:w-12 sm:h-12 rounded-full overflow-hidden border-2 border-[#437579] shadow-md hover:scale-105 transition-transform bg-white shrink-0">
+            <div className="relative w-9 h-9 sm:w-12 sm:h-12 rounded-full overflow-hidden border-2 border-[#437579] shadow-md hover:scale-105 transition-transform bg-white shrink-0">
               <img
                 src="/img/logo.png"
                 alt="Confecciones a Crochet Imidi"
@@ -62,8 +77,9 @@ export function Navbar({
               />
             </div>
             <div className="shrink-0">
-              <h1 className="font-serif text-base sm:text-lg font-bold tracking-tight text-[#213B3E] leading-tight whitespace-nowrap">
-                Confecciones a Crochet <span className="text-[#437579]">Imidi</span>
+              <h1 className="font-serif text-sm sm:text-lg font-bold tracking-tight text-[#213B3E] leading-tight">
+                <span className="hidden xs:inline">Confecciones </span>
+                <span className="text-[#437579]">Imidi</span>
               </h1>
             </div>
           </Link>
@@ -125,19 +141,19 @@ export function Navbar({
           </nav>
 
           {/* Acciones Rápidas del Usuario */}
-          <div className="flex items-center space-x-2 sm:space-x-2.5 shrink-0">
+          <div className="flex items-center space-x-1.5 sm:space-x-2.5 shrink-0">
             
             {/* Estado del Usuario / Ingresar */}
             {user ? (
               <div className="relative" id="user-dropdown-container">
                 <button
                   onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                  className="flex items-center space-x-2 bg-white border border-[#C4D8D9] hover:border-[#437579] px-3 py-1.5 rounded-full shadow-sm text-xs font-bold text-[#213B3E] transition-all"
+                  className="flex items-center space-x-1.5 sm:space-x-2 bg-white border border-[#C4D8D9] hover:border-[#437579] px-2 sm:px-3 py-1.5 rounded-full shadow-sm text-xs font-bold text-[#213B3E] transition-all"
                 >
                   <div className="w-5 h-5 rounded-full bg-[#437579] text-white flex items-center justify-center text-[10px] font-bold shrink-0">
                     {user.name.charAt(0).toUpperCase()}
                   </div>
-                  <span className="max-w-[100px] truncate">{firstName}</span>
+                  <span className="hidden sm:inline max-w-[100px] truncate">{firstName}</span>
                 </button>
 
                 {userDropdownOpen && (
@@ -177,10 +193,10 @@ export function Navbar({
             ) : (
               <button
                 onClick={onOpenAuth}
-                className="inline-flex items-center space-x-1.5 bg-white hover:bg-[#E2ECEC] text-[#213B3E] font-bold text-xs px-3 py-2 rounded-full border border-[#C4D8D9] transition-all shadow-sm whitespace-nowrap"
+                className="inline-flex items-center space-x-1.5 bg-white hover:bg-[#E2ECEC] text-[#213B3E] font-bold text-xs px-2.5 sm:px-3 py-2 rounded-full border border-[#C4D8D9] transition-all shadow-sm whitespace-nowrap"
               >
                 <User className="w-3.5 h-3.5 text-[#437579]" />
-                <span>Ingresar</span>
+                <span className="hidden sm:inline">Ingresar</span>
               </button>
             )}
 
@@ -205,10 +221,10 @@ export function Navbar({
               href={`https://wa.me/${STORE_WHATSAPP_NUMBER}?text=${encodeURIComponent('¡Hola Confecciones a Crochet Imidi! Quisiera consultar disponibilidad y hacer un pedido.')}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center space-x-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-3.5 py-2 sm:py-2.5 rounded-full shadow-md transition-all whitespace-nowrap"
+              className="inline-flex items-center space-x-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-2.5 sm:px-3.5 py-2 sm:py-2.5 rounded-full shadow-md transition-all whitespace-nowrap"
             >
               <MessageCircle className="w-4 h-4" />
-              <span>WhatsApp</span>
+              <span className="hidden sm:inline">WhatsApp</span>
             </a>
 
             {/* Menú Móvil */}
@@ -221,21 +237,25 @@ export function Navbar({
           </div>
         </div>
 
-        {/* Menú Móvil Desplegable */}
-        {mobileMenuOpen && (
-          <div className="md:hidden py-4 border-t border-[#C4D8D9] space-y-2 bg-[#F8F5EF] px-2 rounded-b-2xl shadow-xl font-bold text-xs">
+        {/* Menú Móvil Desplegable con animación */}
+        <div
+          className={`md:hidden overflow-hidden transition-all duration-300 ease-in-out ${
+            mobileMenuOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
+          }`}
+        >
+          <div className="py-4 border-t border-[#C4D8D9] space-y-2 bg-[#F8F5EF] px-2 rounded-b-2xl font-bold text-xs">
             {!user ? (
               <button
                 onClick={() => {
                   setMobileMenuOpen(false);
                   onOpenAuth();
                 }}
-                className="block w-full text-left px-3 py-2 bg-[#437579] text-white rounded-lg font-bold"
+                className="block w-full text-left px-3 py-3 bg-[#437579] text-white rounded-lg font-bold"
               >
                 🔑 Iniciar Sesión / Registro
               </button>
             ) : (
-              <div className="px-3 py-2 bg-white rounded-lg border border-[#C4D8D9] flex items-center justify-between">
+              <div className="px-3 py-2.5 bg-white rounded-lg border border-[#C4D8D9] flex items-center justify-between">
                 <span>Hola, <strong>{user.name}</strong></span>
                 <button onClick={onLogout} className="text-rose-600 text-xs font-bold">Salir</button>
               </div>
@@ -244,7 +264,7 @@ export function Navbar({
             <Link
               href="/"
               onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center space-x-2 w-full text-left px-3.5 py-2.5 bg-white border border-[#C4D8D9] text-[#213B3E] rounded-xl font-bold"
+              className="flex items-center space-x-2 w-full text-left px-3.5 py-3 bg-white border border-[#C4D8D9] text-[#213B3E] rounded-xl font-bold"
             >
               <Home className="w-4 h-4 text-[#437579]" />
               <span>Inicio</span>
@@ -253,7 +273,7 @@ export function Navbar({
             <Link
               href="/catalogo"
               onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center space-x-2 w-full text-left px-3.5 py-2.5 bg-white border border-[#C4D8D9] text-[#213B3E] rounded-xl font-bold"
+              className="flex items-center space-x-2 w-full text-left px-3.5 py-3 bg-white border border-[#C4D8D9] text-[#213B3E] rounded-xl font-bold"
             >
               <Grid className="w-4 h-4 text-[#D89B53]" />
               <span>Catálogo de Prendas</span>
@@ -262,7 +282,7 @@ export function Navbar({
             <Link
               href="/arreglos"
               onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center space-x-2 w-full text-left px-3.5 py-2.5 bg-white border border-[#C4D8D9] text-[#213B3E] rounded-xl font-bold"
+              className="flex items-center space-x-2 w-full text-left px-3.5 py-3 bg-white border border-[#C4D8D9] text-[#213B3E] rounded-xl font-bold"
             >
               <Scissors className="w-4 h-4 text-[#D89B53]" />
               <span>Costura & Arreglos $</span>
@@ -271,7 +291,7 @@ export function Navbar({
             <Link
               href="/contacto"
               onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center space-x-2 w-full text-left px-3.5 py-2.5 bg-white border border-[#C4D8D9] text-[#213B3E] rounded-xl font-bold"
+              className="flex items-center space-x-2 w-full text-left px-3.5 py-3 bg-white border border-[#C4D8D9] text-[#213B3E] rounded-xl font-bold"
             >
               <Mail className="w-4 h-4 text-emerald-600" />
               <span>Contacto</span>
@@ -281,14 +301,14 @@ export function Navbar({
               <Link
                 href="/admin"
                 onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center space-x-2 w-full text-left px-3.5 py-2.5 bg-slate-900 text-white rounded-xl font-bold"
+                className="flex items-center space-x-2 w-full text-left px-3.5 py-3 bg-slate-900 text-white rounded-xl font-bold"
               >
                 <ShieldCheck className="w-4 h-4 text-emerald-400" />
                 <span>Panel Admin (/admin)</span>
               </Link>
             )}
           </div>
-        )}
+        </div>
       </div>
     </header>
   );

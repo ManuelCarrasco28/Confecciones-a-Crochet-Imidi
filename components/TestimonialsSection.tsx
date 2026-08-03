@@ -6,11 +6,11 @@ import { Star, HeartHandshake, Sparkles, Scissors, Award } from 'lucide-react';
 
 export function TestimonialsSection() {
   return (
-    <section className="py-20 bg-[#F8F5EF] text-[#213B3E] border-b border-[#C4D8D9]">
+    <section className="py-12 sm:py-20 bg-[#F8F5EF] text-[#213B3E] border-b border-[#C4D8D9]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Cabecera de Opiniones */}
-        <div className="text-center max-w-2xl mx-auto mb-16 space-y-3">
+        <div className="text-center max-w-2xl mx-auto mb-8 sm:mb-16 space-y-3">
           <div className="inline-flex items-center space-x-1.5 text-xs font-extrabold text-[#437579] uppercase tracking-widest">
             <HeartHandshake className="w-4 h-4 text-[#D97B84]" />
             <span>Confianza & Satisfacción</span>
