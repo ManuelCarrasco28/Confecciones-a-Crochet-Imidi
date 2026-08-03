@@ -133,7 +133,10 @@ export function Catalog({
           matchesPrice = false;
         }
 
-        return matchesCategory && matchesSearch && matchesPrice;
+        // 4. Filtro de Disponibilidad en Stock
+        const isAvailable = p.inStock !== false;
+
+        return matchesCategory && matchesSearch && matchesPrice && isAvailable;
       })
       .sort((a, b) => {
         if (sortBy === 'price-asc') return a.price - b.price;

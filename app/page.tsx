@@ -127,25 +127,30 @@ export default function HomePage() {
     loadProductsFromSupabase();
   }, []);
 
+  // Filtrar solo productos disponibles en stock para los clientes
+  const availableProducts = useMemo(() => {
+    return products.filter((p) => p.inStock !== false);
+  }, [products]);
+
   // Timer para Carrusel Automático Infinito (Se desplaza solo cada 3.5 segundos)
   useEffect(() => {
-    if (isHovered || products.length === 0) return;
+    if (isHovered || availableProducts.length === 0) return;
     const interval = setInterval(() => {
-      setCarouselIndex((prevIndex) => (prevIndex + 1) % products.length);
+      setCarouselIndex((prevIndex) => (prevIndex + 1) % availableProducts.length);
     }, 3500);
 
     return () => clearInterval(interval);
-  }, [isHovered, products.length]);
+  }, [isHovered, availableProducts.length]);
 
   // Obtener siempre 4 productos exactos de forma CÍCLICA e INFINITA (Cero espacios vacíos)
   const visibleProducts = useMemo(() => {
-    if (products.length === 0) return [];
-    const count = Math.min(4, products.length);
+    if (availableProducts.length === 0) return [];
+    const count = Math.min(4, availableProducts.length);
     return Array.from({ length: count }).map((_, offset) => {
-      const idx = (carouselIndex + offset) % products.length;
-      return products[idx];
+      const idx = (carouselIndex + offset) % availableProducts.length;
+      return availableProducts[idx];
     });
-  }, [products, carouselIndex]);
+  }, [availableProducts, carouselIndex]);
 
   // Guardar carrito
   useEffect(() => {
