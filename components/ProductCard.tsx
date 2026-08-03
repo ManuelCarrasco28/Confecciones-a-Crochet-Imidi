@@ -23,10 +23,10 @@ export function ProductCard({ product, onOpenModal, onAddToCart }: ProductCardPr
   };
 
   return (
-    <div className="group bg-white rounded-2xl sm:rounded-3xl overflow-hidden border border-[#C4D8D9] hover:border-[#437579] shadow-sm hover:shadow-xl hover:shadow-[#437579]/15 transition-all duration-300 flex flex-col justify-between">
+    <div className="group w-full max-w-sm mx-auto sm:max-w-none bg-white rounded-2xl sm:rounded-3xl overflow-hidden border border-[#C4D8D9] hover:border-[#437579] shadow-sm hover:shadow-xl hover:shadow-[#437579]/15 transition-all duration-300 flex flex-col justify-between">
       
       {/* Imagen & Badges */}
-      <div className="relative aspect-[3/4] sm:aspect-[4/5] overflow-hidden bg-[#F2F7F7] cursor-pointer" onClick={() => onOpenModal(product)}>
+      <div className="relative aspect-[4/5] overflow-hidden bg-[#F2F7F7] cursor-pointer" onClick={() => onOpenModal(product)}>
         <img
           src={product.imageUrl}
           alt={product.name}
@@ -85,13 +85,13 @@ export function ProductCard({ product, onOpenModal, onAddToCart }: ProductCardPr
         </div>
 
         {/* Precio & Acciones */}
-        <div className="pt-2 sm:pt-3 border-t border-[#E2ECEC] flex items-center justify-between">
-          <div>
+        <div className="pt-2 sm:pt-3 border-t border-[#E2ECEC] flex items-center justify-between gap-3">
+          <div className="min-w-0">
             <span className="text-[9px] sm:text-[10px] text-[#597477] block font-medium">Precio confección</span>
             <span className="text-[#437579] font-bold text-lg sm:text-xl">{formatCurrency(product.price)}</span>
           </div>
 
-          <div className="flex items-center space-x-1.5 sm:space-x-2">
+          <div className="flex items-center space-x-1.5 sm:space-x-2 shrink-0">
             
             {/* Botón Añadir a Lista */}
             <button

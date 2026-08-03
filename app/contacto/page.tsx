@@ -157,7 +157,7 @@ export default function ContactoPage() {
                   </div>
                   <div>
                     <h3 className="font-bold text-sm text-[#213B3E]">Correo Electrónico</h3>
-                    <p className="text-xs text-[#597477] mt-0.5">josemanuelcarrascomillan@gmail.com</p>
+                    <p className="text-xs text-[#597477] mt-0.5 break-all">josemanuelcarrascomillan@gmail.com</p>
                     <p className="text-[11px] text-[#437579] mt-1 font-semibold">Atención de consultas administrativas y pedidos</p>
                   </div>
                 </div>

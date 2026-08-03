@@ -152,6 +152,13 @@ export default function HomePage() {
     });
   }, [availableProducts, carouselIndex]);
 
+  const activeMobileProduct = availableProducts.length > 0
+    ? availableProducts[carouselIndex % availableProducts.length]
+    : null;
+  const activeMobilePosition = availableProducts.length > 0
+    ? (carouselIndex % availableProducts.length) + 1
+    : 0;
+
   // Guardar carrito
   useEffect(() => {
     try {
@@ -289,7 +296,7 @@ export default function HomePage() {
               {/* Botón Flotante Lateral Izquierda (Atrás) */}
               <button
                 onClick={prevSlide}
-                className="absolute left-0 sm:-left-6 top-1/2 -translate-y-1/2 z-20 w-9 h-9 sm:w-12 sm:h-12 rounded-full bg-white/90 sm:bg-white text-[#437579] border-2 border-[#437579] shadow-xl hover:scale-110 hover:bg-[#437579] hover:text-white flex items-center justify-center transition-all"
+                className="hidden sm:flex absolute sm:-left-6 top-1/2 -translate-y-1/2 z-20 sm:w-12 sm:h-12 rounded-full sm:bg-white text-[#437579] border-2 border-[#437579] shadow-xl hover:scale-110 hover:bg-[#437579] hover:text-white items-center justify-center transition-all"
                 aria-label="Flecha Atrás"
                 title="Atrás"
               >
@@ -299,7 +306,7 @@ export default function HomePage() {
               {/* Botón Flotante Lateral Derecha (Adelante) */}
               <button
                 onClick={nextSlide}
-                className="absolute right-0 sm:-right-6 top-1/2 -translate-y-1/2 z-20 w-9 h-9 sm:w-12 sm:h-12 rounded-full bg-[#437579]/90 sm:bg-[#437579] text-white border-2 border-[#437579] shadow-xl hover:scale-110 hover:bg-[#335C60] flex items-center justify-center transition-all"
+                className="hidden sm:flex absolute sm:-right-6 top-1/2 -translate-y-1/2 z-20 sm:w-12 sm:h-12 rounded-full sm:bg-[#437579] text-white border-2 border-[#437579] shadow-xl hover:scale-110 hover:bg-[#335C60] items-center justify-center transition-all"
                 aria-label="Flecha Adelante"
                 title="Adelante"
               >
@@ -307,7 +314,39 @@ export default function HomePage() {
               </button>
 
               {/* Grilla Cíclica de Productos Continuos */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 py-2 px-1 transition-all duration-500">
+              {activeMobileProduct && (
+                <div className="sm:hidden space-y-4">
+                  <div className="flex items-center justify-center gap-3">
+                    <button
+                      onClick={prevSlide}
+                      className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-white text-[#437579] border-2 border-[#437579] shadow-md active:scale-95 transition-all"
+                      aria-label="Prenda anterior"
+                      title="AtrÃ¡s"
+                    >
+                      <ChevronLeft className="w-5 h-5 stroke-[2.5]" />
+                    </button>
+                    <span className="min-w-20 text-center text-[11px] font-bold text-[#597477]">
+                      {activeMobilePosition} / {availableProducts.length}
+                    </span>
+                    <button
+                      onClick={nextSlide}
+                      className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-[#437579] text-white border-2 border-[#437579] shadow-md active:scale-95 transition-all"
+                      aria-label="Siguiente prenda"
+                      title="Adelante"
+                    >
+                      <ChevronRight className="w-5 h-5 stroke-[2.5]" />
+                    </button>
+                  </div>
+
+                  <ProductCard
+                    product={activeMobileProduct}
+                    onOpenModal={(product) => setSelectedProduct(product)}
+                    onAddToCart={(product) => handleAddToCart(product)}
+                  />
+                </div>
+              )}
+
+              <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 py-2 px-1 transition-all duration-500">
                 {visibleProducts.map((prod, idx) => (
                   <ProductCard
                     key={`${prod.id}-${idx}`}

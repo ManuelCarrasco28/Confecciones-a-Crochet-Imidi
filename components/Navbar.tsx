@@ -29,11 +29,6 @@ export function Navbar({
 
   const totalItemsCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
-  // Cerrar menú móvil al cambiar de ruta
-  useEffect(() => {
-    setMobileMenuOpen(false);
-  }, [pathname]);
-
   // Cerrar el dropdown al hacer clic fuera
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -85,7 +80,7 @@ export function Navbar({
           </Link>
 
           {/* Navegación Principal Creativa y Uniforme */}
-          <nav className="hidden md:flex items-center space-x-2.5 text-xs font-bold whitespace-nowrap">
+          <nav className="hidden lg:flex items-center space-x-2.5 text-xs font-bold whitespace-nowrap">
             
             {/* Inicio */}
             <Link
@@ -230,7 +225,7 @@ export function Navbar({
             {/* Menú Móvil */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 text-[#213B3E] hover:text-[#437579] focus:outline-none"
+              className="lg:hidden p-2 text-[#213B3E] hover:text-[#437579] focus:outline-none"
             >
               {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
@@ -239,7 +234,7 @@ export function Navbar({
 
         {/* Menú Móvil Desplegable con animación */}
         <div
-          className={`md:hidden overflow-hidden transition-all duration-300 ease-in-out ${
+          className={`lg:hidden overflow-hidden transition-all duration-300 ease-in-out ${
             mobileMenuOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
           }`}
         >

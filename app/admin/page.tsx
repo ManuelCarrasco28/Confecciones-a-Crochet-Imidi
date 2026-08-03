@@ -35,6 +35,27 @@ import { INITIAL_PRODUCTS } from '@/lib/mockData';
 import { formatCurrency } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 
+type NewUserForm = {
+  name: string;
+  email: string;
+  phone: string;
+  role: 'admin' | 'cliente';
+  password: string;
+};
+
+const EMPTY_NEW_USER: NewUserForm = {
+  name: '',
+  email: '',
+  phone: '',
+  role: 'cliente',
+  password: '',
+};
+
+function normalizePeruMobile(phone: string) {
+  const digits = phone.replace(/\D/g, '');
+  return digits.startsWith('51') && digits.length === 11 ? digits.slice(2) : digits;
+}
+
 export default function AdminPage() {
   const router = useRouter();
 
@@ -63,6 +84,8 @@ export default function AdminPage() {
   const [editingCatId, setEditingCatId] = useState<string | null>(null);
   const [newCatName, setNewCatName] = useState('');
   const [newCatDesc, setNewCatDesc] = useState('');
+  const [isEditingCategoryModal, setIsEditingCategoryModal] = useState(false);
+  const [categorySearchTerm, setCategorySearchTerm] = useState('');
 
   const [isEditingProduct, setIsEditingProduct] = useState(false);
   const [currentProduct, setCurrentProduct] = useState<Partial<Product>>({
@@ -79,6 +102,10 @@ export default function AdminPage() {
 
   const [systemUsers, setSystemUsers] = useState<UserAccount[]>([]);
   const [editingUser, setEditingUser] = useState<UserAccount | null>(null);
+  const [creatingUser, setCreatingUser] = useState<NewUserForm | null>(null);
+  const [isCreatingUser, setIsCreatingUser] = useState(false);
+  const [userCreateError, setUserCreateError] = useState('');
+  const [userCreateSuccess, setUserCreateSuccess] = useState('');
   const [customRequests, setCustomRequests] = useState<CustomOrderRow[]>([]);
 
   // Configuración del Módulo de Negocio
@@ -345,22 +372,113 @@ export default function AdminPage() {
 
     setNewCatName('');
     setNewCatDesc('');
+    setIsEditingCategoryModal(false);
   };
 
   const handleStartEditCategory = (cat: { id: string; name: string; description: string }) => {
     setEditingCatId(cat.id);
     setNewCatName(cat.name);
     setNewCatDesc(cat.description);
+    setIsEditingCategoryModal(true);
   };
 
   const handleCancelEditCategory = () => {
     setEditingCatId(null);
     setNewCatName('');
     setNewCatDesc('');
+    setIsEditingCategoryModal(false);
   };
 
   const handleDeleteCategory = (id: string) => {
     setCategories((prev) => prev.filter((c) => c.id !== id));
+  };
+
+  const filteredCategories = categories.filter((cat) => {
+    return (
+      cat.name.toLowerCase().includes(categorySearchTerm.toLowerCase()) ||
+      cat.description.toLowerCase().includes(categorySearchTerm.toLowerCase())
+    );
+  });
+
+  const openCreateUserModal = (role: 'admin' | 'cliente') => {
+    setUserCreateError('');
+    setUserCreateSuccess('');
+    setCreatingUser({ ...EMPTY_NEW_USER, role });
+  };
+
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!creatingUser || isCreatingUser) return;
+
+    const name = creatingUser.name.trim();
+    const email = creatingUser.email.trim().toLowerCase();
+    const phone = normalizePeruMobile(creatingUser.phone);
+    const password = creatingUser.password.trim();
+
+    if (name.length < 3) {
+      setUserCreateError('El nombre debe tener al menos 3 caracteres.');
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setUserCreateError('Ingresa un correo electronico valido.');
+      return;
+    }
+
+    if (!/^9\d{8}$/.test(phone)) {
+      setUserCreateError('Ingresa un celular peruano valido de 9 digitos que empiece con 9.');
+      return;
+    }
+
+    if (password.length < 8) {
+      setUserCreateError('La contrasena debe tener al menos 8 caracteres.');
+      return;
+    }
+
+    setIsCreatingUser(true);
+    setUserCreateError('');
+
+    try {
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+
+      const response = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({
+          name,
+          email,
+          phone,
+          password,
+          role: creatingUser.role,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'No se pudo crear el usuario.');
+      }
+
+      const createdUser = result.user as UserAccount;
+      setSystemUsers((prev) => [
+        createdUser,
+        ...prev.filter((u) => u.id !== createdUser.id && u.email !== createdUser.email),
+      ]);
+      setCreatingUser(null);
+      setUserCreateSuccess(
+        createdUser.role === 'cliente'
+          ? 'Cliente creado correctamente.'
+          : 'Usuario administrador creado correctamente.'
+      );
+    } catch (err) {
+      setUserCreateError(err instanceof Error ? err.message : 'Error al crear el usuario.');
+    } finally {
+      setIsCreatingUser(false);
+    }
   };
 
   const handleToggleUserRole = async (userId?: string) => {
@@ -411,19 +529,45 @@ export default function AdminPage() {
     e.preventDefault();
     if (!editingUser) return;
 
+    const name = editingUser.name.trim();
+    const email = editingUser.email.trim().toLowerCase();
+    const phone = editingUser.phone ? normalizePeruMobile(editingUser.phone) : '';
+
+    if (name.length < 3) {
+      alert('El nombre debe tener al menos 3 caracteres.');
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      alert('Ingresa un correo electronico valido.');
+      return;
+    }
+
+    if (phone && !/^9\d{8}$/.test(phone)) {
+      alert('Ingresa un celular peruano valido de 9 digitos que empiece con 9.');
+      return;
+    }
+
+    const updatedUser = {
+      ...editingUser,
+      name,
+      email,
+      phone,
+    };
+
     try {
       const supabase = createClient();
       await supabase.from('profiles').update({
-        full_name: editingUser.name,
-        email: editingUser.email,
-        phone: editingUser.phone,
+        full_name: name,
+        email,
+        phone: phone || null,
       }).eq('id', editingUser.id);
     } catch {
       // Ignorar
     }
 
     setSystemUsers((prev) =>
-      prev.map((u) => (u.id === editingUser.id ? editingUser : u))
+      prev.map((u) => (u.id === editingUser.id ? updatedUser : u))
     );
     setEditingUser(null);
   };
@@ -495,16 +639,16 @@ export default function AdminPage() {
       <div className="flex flex-1 min-h-screen overflow-hidden">
         
         {/* Sidebar Lateral Fijo (Desktop) */}
-        <aside className={`w-64 ${sidebarBg} border-r flex flex-col justify-between p-4 shrink-0 hidden md:flex transition-colors`}>
+        <aside className={`w-72 ${sidebarBg} border-r flex flex-col justify-between p-4 shrink-0 hidden md:flex transition-colors`}>
           <div className="space-y-6">
             
             <div className="flex items-center space-x-3 px-2 py-1">
               <div className="w-10 h-10 rounded-full bg-white p-0.5 border border-[#437579] overflow-hidden shrink-0 shadow-md">
                 <img src="/img/logo.png" alt="Logo Imidi" className="w-full h-full object-cover" />
               </div>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <h3 className={`text-sm font-bold truncate ${isDark ? 'text-white' : 'text-[#162C2E]'}`}>Confecciones Imidi</h3>
-                <span className="text-[10px] text-[#437579] font-bold block truncate">{currentUser?.email}</span>
+                <span className="text-[9px] text-[#437579] font-bold block break-all leading-tight">{currentUser?.email}</span>
               </div>
             </div>
 
@@ -644,9 +788,9 @@ export default function AdminPage() {
                     <div className="w-9 h-9 rounded-full bg-white p-0.5 border border-[#437579] overflow-hidden shrink-0 shadow-md">
                       <img src="/img/logo.png" alt="Logo Imidi" className="w-full h-full object-cover" />
                     </div>
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <h3 className={`text-xs font-bold truncate ${isDark ? 'text-white' : 'text-[#162C2E]'}`}>Confecciones Imidi</h3>
-                      <span className="text-[9px] text-[#437579] font-bold block truncate">{currentUser?.email}</span>
+                      <span className="text-[9px] text-[#437579] font-bold block break-all leading-tight">{currentUser?.email}</span>
                     </div>
                   </div>
                   <button onClick={() => setMobileAdminNavOpen(false)} className="p-1 rounded-lg text-slate-400 hover:text-rose-500">
@@ -834,29 +978,6 @@ export default function AdminPage() {
                 )}
               </button>
 
-              {activeTab === 'productos' && (
-                <button
-                  onClick={() => {
-                    setCurrentProduct({
-                      name: '',
-                      category: 'blusas',
-                      price: undefined,
-                      description: '',
-                      details: ['Tejido a mano'],
-                      colors: COLOR_OPTIONS,
-                      sizes: ['S', 'M', 'L'],
-                      imageUrl: '',
-                      inStock: true,
-                    });
-                    setIsEditingProduct(true);
-                  }}
-                  className="inline-flex items-center space-x-1.5 bg-[#437579] hover:bg-[#335C60] text-white font-bold text-xs px-3.5 py-2 rounded-xl transition-all shadow-md"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Nuevo Producto</span>
-                </button>
-              )}
-
               <Link
                 href="/"
                 className={`inline-flex items-center space-x-1.5 text-xs px-3.5 py-2 rounded-xl border font-bold transition-all ${
@@ -936,6 +1057,27 @@ export default function AdminPage() {
                       className={`w-full ${inputBg} rounded-xl pl-10 pr-4 py-2 text-xs placeholder-slate-400 focus:outline-none focus:border-[#437579]`}
                     />
                   </div>
+
+                  <button
+                    onClick={() => {
+                      setCurrentProduct({
+                        name: '',
+                        category: 'blusas',
+                        price: undefined,
+                        description: '',
+                        details: ['Tejido a mano'],
+                        colors: COLOR_OPTIONS,
+                        sizes: ['S', 'M', 'L'],
+                        imageUrl: '',
+                        inStock: true,
+                      });
+                      setIsEditingProduct(true);
+                    }}
+                    className="w-full sm:w-auto inline-flex items-center justify-center space-x-1.5 bg-[#437579] hover:bg-[#335C60] text-white font-bold text-xs px-4 py-2.5 rounded-xl transition-all shadow-md shrink-0"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Nuevo Producto</span>
+                  </button>
                 </div>
 
                 <div className={`${cardBg} rounded-2xl overflow-hidden shadow-sm`}>
@@ -1015,77 +1157,39 @@ export default function AdminPage() {
 
             {/* 3. CATEGORÍAS EN TABLA DE CRUD */}
             {activeTab === 'categorias' && (
-              <div className="space-y-6">
+              <div className="space-y-4">
                 
-                {/* Formulario de Agregar / Editar Categoría con Floating Labels de Alto Contraste */}
-                <div className={`${cardBg} p-6 rounded-2xl space-y-4`}>
-                  <h3 className="text-sm font-bold flex items-center justify-between border-b border-slate-800/20 pb-3">
-                    <span className="flex items-center gap-2">
-                      <FolderTree className="w-4 h-4 text-indigo-500" />
-                      <span>{editingCatId ? 'Editar Categoría' : 'Agregar Nueva Categoría al Catálogo'}</span>
-                    </span>
-                    {editingCatId && (
-                      <button
-                        onClick={handleCancelEditCategory}
-                        className="text-xs text-rose-500 font-bold hover:underline"
-                      >
-                        Cancelar Edición
-                      </button>
-                    )}
-                  </h3>
+                {/* Toolbar con buscador de categorías y botón modal de creación */}
+                <div className={`flex flex-col sm:flex-row items-center justify-between gap-4 ${cardBg} p-4 rounded-2xl`}>
+                  <div className="relative w-full sm:w-80">
+                    <Search className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 ${subText}`} />
+                    <input
+                      type="text"
+                      placeholder="Buscar categoría por nombre o descripción..."
+                      value={categorySearchTerm}
+                      onChange={(e) => setCategorySearchTerm(e.target.value)}
+                      className={`w-full ${inputBg} rounded-xl pl-10 pr-4 py-2 text-xs placeholder-slate-400 focus:outline-none focus:border-[#437579]`}
+                    />
+                  </div>
 
-                  <form onSubmit={handleSaveCategory} className="grid grid-cols-1 sm:grid-cols-12 gap-3 text-xs">
-                    <div className="sm:col-span-5 relative">
-                      <input
-                        type="text"
-                        id="catName"
-                        required
-                        value={newCatName}
-                        onChange={(e) => setNewCatName(e.target.value)}
-                        placeholder=" "
-                        className={`peer w-full ${inputBg} rounded-2xl px-4 pt-5 pb-2 text-xs transition-all shadow-sm`}
-                      />
-                      <label
-                        htmlFor="catName"
-                        className={`absolute left-4 top-2 text-[10px] transition-all peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-xs peer-focus:top-1.5 peer-focus:text-[10px] pointer-events-none ${floatingLabel}`}
-                      >
-                        Nombre de la Categoría
-                      </label>
-                    </div>
-
-                    <div className="sm:col-span-5 relative">
-                      <input
-                        type="text"
-                        id="catDesc"
-                        value={newCatDesc}
-                        onChange={(e) => setNewCatDesc(e.target.value)}
-                        placeholder=" "
-                        className={`peer w-full ${inputBg} rounded-2xl px-4 pt-5 pb-2 text-xs transition-all shadow-sm`}
-                      />
-                      <label
-                        htmlFor="catDesc"
-                        className={`absolute left-4 top-2 text-[10px] transition-all peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-xs peer-focus:top-1.5 peer-focus:text-[10px] pointer-events-none ${floatingLabel}`}
-                      >
-                        Descripción corta (Opcional)
-                      </label>
-                    </div>
-
-                    <div className="sm:col-span-2 flex items-end">
-                      <button
-                        type="submit"
-                        className="w-full bg-[#437579] hover:bg-[#335C60] text-white font-bold py-3.5 rounded-2xl flex items-center justify-center gap-1 shadow-md transition-all uppercase tracking-wider text-xs"
-                      >
-                        {editingCatId ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-                        <span>{editingCatId ? 'Guardar' : 'Crear'}</span>
-                      </button>
-                    </div>
-                  </form>
+                  <button
+                    onClick={() => {
+                      setEditingCatId(null);
+                      setNewCatName('');
+                      setNewCatDesc('');
+                      setIsEditingCategoryModal(true);
+                    }}
+                    className="w-full sm:w-auto inline-flex items-center justify-center space-x-1.5 bg-[#437579] hover:bg-[#335C60] text-white font-bold text-xs px-4 py-2.5 rounded-xl transition-all shadow-md shrink-0"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Nueva Categoría</span>
+                  </button>
                 </div>
 
                 {/* Tabla de Listado CRUD de Categorías */}
                 <div className={`${cardBg} rounded-2xl overflow-hidden shadow-sm`}>
                   <div className="px-6 py-4 border-b border-slate-800/20 flex items-center justify-between">
-                    <h3 className="text-sm font-bold">Listado de Categorías ({categories.length})</h3>
+                    <h3 className="text-sm font-bold">Listado de Categorías ({filteredCategories.length})</h3>
                   </div>
 
                   <div className="overflow-x-auto">
@@ -1099,7 +1203,7 @@ export default function AdminPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-800/20">
-                        {categories.map((cat) => {
+                        {filteredCategories.map((cat) => {
                           const count = products.filter((p) => p.category === cat.id).length;
                           return (
                             <tr key={cat.id} className="hover:bg-[#437579]/10 transition-colors">
@@ -1126,18 +1230,18 @@ export default function AdminPage() {
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </button>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
-
               </div>
-            )}
+
+            </div>
+          )}
 
             {/* 4. SOLICITUDES DE COSTURA REALES CON ACCIONES COMPLETAS */}
             {activeTab === 'solicitudes' && (
@@ -1352,12 +1456,24 @@ export default function AdminPage() {
             {/* 6. GESTIÓN DE CLIENTES CON ACCIONES COMPLETAS */}
             {activeTab === 'clientes' && (
               <div className="space-y-4">
+                {userCreateSuccess && (
+                  <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-xs font-bold text-emerald-700">
+                    {userCreateSuccess}
+                  </div>
+                )}
                 <div className={`${cardBg} rounded-2xl overflow-hidden shadow-sm`}>
-                  <div className="px-6 py-4 border-b border-slate-800/20 flex items-center justify-between">
+                  <div className="px-6 py-4 border-b border-slate-800/20 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div>
                       <h3 className="text-sm font-bold">Gestión de Clientes Registrados</h3>
                       <p className={`text-xs ${subText}`}>Perfiles de clientes registrados en Supabase</p>
                     </div>
+                    <button
+                      onClick={() => openCreateUserModal('cliente')}
+                      className="inline-flex items-center justify-center space-x-1.5 bg-[#437579] hover:bg-[#335C60] text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md hover:shadow-lg transition-all uppercase tracking-wider"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Nuevo Cliente</span>
+                    </button>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs">
@@ -1423,11 +1539,23 @@ export default function AdminPage() {
             {/* 7. GESTIÓN DE USUARIOS CON ACCIONES COMPLETAS */}
             {activeTab === 'usuarios' && (
               <div className="space-y-4">
+                {userCreateSuccess && (
+                  <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-xs font-bold text-emerald-700">
+                    {userCreateSuccess}
+                  </div>
+                )}
                 <div className={`${cardBg} rounded-2xl overflow-hidden shadow-sm`}>
-                  <div className="px-6 py-4 border-b border-slate-800/20 flex items-center justify-between">
+                  <div className="px-6 py-4 border-b border-slate-800/20 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div>
                       <h3 className="text-sm font-bold">Gestión de Usuarios & Roles en Supabase</h3>
                     </div>
+                    <button
+                      onClick={() => openCreateUserModal('cliente')}
+                      className="inline-flex items-center justify-center space-x-1.5 bg-[#437579] hover:bg-[#335C60] text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md hover:shadow-lg transition-all uppercase tracking-wider"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Nuevo Usuario</span>
+                    </button>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs">
@@ -1508,6 +1636,153 @@ export default function AdminPage() {
         </main>
 
       </div>
+
+      {/* Modal Crear Usuario / Cliente */}
+      {creatingUser && (
+        <div className="fixed inset-0 z-60 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className={`${isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-[#B2CFCF] text-[#162C2E]'} border rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto`}>
+
+            <div className="flex items-center justify-between border-b border-slate-800/20 pb-3">
+              <h3 className="font-bold text-base">
+                {creatingUser.role === 'cliente' ? 'Crear Cliente' : 'Crear Usuario Admin'}
+              </h3>
+              <button
+                onClick={() => {
+                  setCreatingUser(null);
+                  setUserCreateError('');
+                }}
+                className="text-slate-400 hover:text-rose-500"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {userCreateError && (
+              <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-xs font-bold text-rose-600">
+                {userCreateError}
+              </div>
+            )}
+
+            <form onSubmit={handleCreateUser} className="space-y-4 text-xs">
+
+              <div className="relative">
+                <input
+                  type="text"
+                  id="newUserName"
+                  required
+                  minLength={3}
+                  value={creatingUser.name}
+                  onChange={(e) => setCreatingUser({ ...creatingUser, name: e.target.value })}
+                  placeholder=" "
+                  className={`peer w-full ${inputBg} rounded-2xl px-4 pt-5 pb-2 text-xs transition-all shadow-sm`}
+                />
+                <label
+                  htmlFor="newUserName"
+                  className={`absolute left-4 top-2 text-[10px] transition-all peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-xs peer-focus:top-1.5 peer-focus:text-[10px] pointer-events-none ${floatingLabel}`}
+                >
+                  Nombre Completo
+                </label>
+              </div>
+
+              <div className="relative">
+                <input
+                  type="email"
+                  id="newUserEmail"
+                  required
+                  value={creatingUser.email}
+                  onChange={(e) => setCreatingUser({ ...creatingUser, email: e.target.value })}
+                  placeholder=" "
+                  className={`peer w-full ${inputBg} rounded-2xl px-4 pt-5 pb-2 text-xs transition-all shadow-sm`}
+                />
+                <label
+                  htmlFor="newUserEmail"
+                  className={`absolute left-4 top-2 text-[10px] transition-all peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-xs peer-focus:top-1.5 peer-focus:text-[10px] pointer-events-none ${floatingLabel}`}
+                >
+                  Correo Electronico
+                </label>
+              </div>
+
+              <div className="relative">
+                <input
+                  type="tel"
+                  id="newUserPhone"
+                  required
+                  inputMode="numeric"
+                  maxLength={14}
+                  value={creatingUser.phone}
+                  onChange={(e) => setCreatingUser({ ...creatingUser, phone: e.target.value })}
+                  placeholder=" "
+                  className={`peer w-full ${inputBg} rounded-2xl px-4 pt-5 pb-2 text-xs transition-all shadow-sm`}
+                />
+                <label
+                  htmlFor="newUserPhone"
+                  className={`absolute left-4 top-2 text-[10px] transition-all peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-xs peer-focus:top-1.5 peer-focus:text-[10px] pointer-events-none ${floatingLabel}`}
+                >
+                  Celular Peruano / WhatsApp
+                </label>
+              </div>
+
+              <div className="relative">
+                <input
+                  type="password"
+                  id="newUserPassword"
+                  required
+                  minLength={8}
+                  value={creatingUser.password}
+                  onChange={(e) => setCreatingUser({ ...creatingUser, password: e.target.value })}
+                  placeholder=" "
+                  className={`peer w-full ${inputBg} rounded-2xl px-4 pt-5 pb-2 text-xs transition-all shadow-sm`}
+                />
+                <label
+                  htmlFor="newUserPassword"
+                  className={`absolute left-4 top-2 text-[10px] transition-all peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-xs peer-focus:top-1.5 peer-focus:text-[10px] pointer-events-none ${floatingLabel}`}
+                >
+                  Contrasena Inicial
+                </label>
+              </div>
+
+              <div className="relative">
+                <select
+                  id="newUserRole"
+                  value={creatingUser.role}
+                  onChange={(e) => setCreatingUser({ ...creatingUser, role: e.target.value as 'admin' | 'cliente' })}
+                  className={`w-full ${inputBg} rounded-2xl px-4 pt-5 pb-2 text-xs transition-all shadow-sm appearance-none font-bold`}
+                >
+                  <option value="cliente">Cliente</option>
+                  <option value="admin">Administrador</option>
+                </select>
+                <label
+                  htmlFor="newUserRole"
+                  className={`absolute left-4 top-2 text-[10px] pointer-events-none ${floatingLabel}`}
+                >
+                  Rol de Acceso
+                </label>
+              </div>
+
+              <div className="pt-3 flex justify-end space-x-2 border-t border-slate-800/20">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCreatingUser(null);
+                    setUserCreateError('');
+                  }}
+                  className={`px-4 py-2 rounded-xl font-bold ${isDark ? 'bg-slate-800 text-slate-300' : 'bg-[#DDE8E8] text-[#162C2E]'}`}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isCreatingUser}
+                  className="px-5 py-2 bg-[#437579] hover:bg-[#335C60] disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-xl font-bold shadow-md"
+                >
+                  {isCreatingUser ? 'Creando...' : 'Crear Registro'}
+                </button>
+              </div>
+            </form>
+
+          </div>
+        </div>
+      )}
 
       {/* Modal Editar Información de Usuario / Cliente con Floating Labels */}
       {editingUser && (
@@ -1767,6 +2042,78 @@ export default function AdminPage() {
                   className="px-5 py-2 bg-[#437579] hover:bg-[#335C60] text-white rounded-xl font-bold shadow-md"
                 >
                   {currentProduct.id ? 'Guardar Cambios' : 'Crear Producto'}
+                </button>
+              </div>
+            </form>
+
+          </div>
+        </div>
+      )}
+
+      {/* Modal Crear/Editar Categoría */}
+      {isEditingCategoryModal && (
+        <div className="fixed inset-0 z-60 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className={`${isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-[#B2CFCF] text-[#162C2E]'} border rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-150`}>
+
+            <div className="flex items-center justify-between border-b border-slate-800/20 pb-3">
+              <h3 className="font-bold text-base flex items-center gap-2">
+                <FolderTree className="w-5 h-5 text-indigo-500" />
+                <span>{editingCatId ? 'Editar Categoría' : 'Nueva Categoría de Tejidos'}</span>
+              </h3>
+              <button onClick={handleCancelEditCategory} className="text-slate-400 hover:text-rose-500">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveCategory} className="space-y-4 text-xs">
+              <div className="relative">
+                <input
+                  type="text"
+                  id="catNameModal"
+                  required
+                  value={newCatName}
+                  onChange={(e) => setNewCatName(e.target.value)}
+                  placeholder=" "
+                  className={`peer w-full ${inputBg} rounded-2xl px-4 pt-5 pb-2 text-xs transition-all shadow-sm`}
+                />
+                <label
+                  htmlFor="catNameModal"
+                  className={`absolute left-4 top-2 text-[10px] transition-all peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-xs peer-focus:top-1.5 peer-focus:text-[10px] pointer-events-none ${floatingLabel}`}
+                >
+                  Nombre de la Categoría
+                </label>
+              </div>
+
+              <div className="relative">
+                <input
+                  type="text"
+                  id="catDescModal"
+                  value={newCatDesc}
+                  onChange={(e) => setNewCatDesc(e.target.value)}
+                  placeholder=" "
+                  className={`peer w-full ${inputBg} rounded-2xl px-4 pt-5 pb-2 text-xs transition-all shadow-sm`}
+                />
+                <label
+                  htmlFor="catDescModal"
+                  className={`absolute left-4 top-2 text-[10px] transition-all peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-xs peer-focus:top-1.5 peer-focus:text-[10px] pointer-events-none ${floatingLabel}`}
+                >
+                  Descripción corta (Opcional)
+                </label>
+              </div>
+
+              <div className="pt-3 flex justify-end space-x-2 border-t border-slate-800/20">
+                <button
+                  type="button"
+                  onClick={handleCancelEditCategory}
+                  className={`px-4 py-2 rounded-xl font-bold ${isDark ? 'bg-slate-800 text-slate-300' : 'bg-[#DDE8E8] text-[#162C2E]'}`}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-[#437579] hover:bg-[#335C60] text-white rounded-xl font-bold shadow-md uppercase tracking-wider"
+                >
+                  {editingCatId ? 'Guardar Cambios' : 'Crear Categoría'}
                 </button>
               </div>
             </form>

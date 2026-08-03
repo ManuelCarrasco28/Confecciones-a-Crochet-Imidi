@@ -112,14 +112,14 @@ export function Hero() {
                 </div>
               </div>
 
-              {/* Inset Flotante en esquina inferior */}
-              <div className="absolute -bottom-3 sm:-bottom-4 -left-2 sm:-left-4 flex items-center space-x-2 sm:space-x-3 bg-white/95 backdrop-blur-md p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl border border-[#437579]/30 shadow-xl">
-                <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-full bg-[#E2ECEC] flex items-center justify-center text-[#437579] font-bold text-xs sm:text-sm">
+              {/* Inset Flotante en esquina superior derecha */}
+              <div className="absolute -top-3 sm:-top-4 -right-2 sm:-right-4 flex items-center space-x-2 sm:space-x-3 bg-white/95 backdrop-blur-md p-2.5 sm:p-3 rounded-xl sm:rounded-2xl border border-[#437579]/30 shadow-xl z-20">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#E2ECEC] flex items-center justify-center text-[#437579] font-bold text-xs sm:text-sm shrink-0">
                   ✂️
                 </div>
                 <div className="text-[10px] sm:text-xs">
                   <p className="font-bold text-[#213B3E]">Servicio de Costura $</p>
-                  <p className="text-[#597477] hidden sm:block">Arreglos y entalles rápidos</p>
+                  <p className="text-[#597477] hidden sm:block text-[10px]">Arreglos y entalles rápidos</p>
                 </div>
               </div>
 
