@@ -168,7 +168,7 @@ export function Navbar({
                         className="w-full text-left px-4 py-2 text-[#213B3E] hover:bg-[#F8F5EF] flex items-center gap-2 font-semibold"
                       >
                         <ShieldCheck className="w-3.5 h-3.5 text-[#437579]" />
-                        <span>Panel Admin (/admin)</span>
+                        <span>Panel Admin</span>
                       </Link>
                     )}
 
@@ -299,7 +299,7 @@ export function Navbar({
                 className="flex items-center space-x-2 w-full text-left px-3.5 py-3 bg-slate-900 text-white rounded-xl font-bold"
               >
                 <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                <span>Panel Admin (/admin)</span>
+                <span>Panel Admin</span>
               </Link>
             )}
           </div>
