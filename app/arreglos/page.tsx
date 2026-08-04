@@ -3,15 +3,13 @@
 import React, { useState, useEffect } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { CustomOrderSection } from '@/components/CustomOrderSection';
-import { CartDrawer } from '@/components/CartDrawer';
+
 import { AuthModal } from '@/components/AuthModal';
 import { Footer } from '@/components/Footer';
-import { CartItem, UserAccount } from '@/lib/types';
+import { UserAccount } from '@/lib/types';
 import { createClient } from '@/lib/supabase/client';
 
 export default function ArreglosPage() {
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const [isCartOpen, setIsCartOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [user, setUser] = useState<UserAccount | null>(null);
 
@@ -50,9 +48,8 @@ export default function ArreglosPage() {
   return (
     <div className="min-h-screen bg-[#F8F5EF] text-[#213B3E] font-sans flex flex-col">
       <Navbar
-        cart={cart}
+        cart={[]}
         user={user}
-        onOpenCart={() => setIsCartOpen(true)}
         onOpenAuth={() => setIsAuthOpen(true)}
         onLogout={handleLogout}
         onSelectCategory={() => {}}
@@ -63,23 +60,6 @@ export default function ArreglosPage() {
       </main>
 
       <Footer user={user} />
-
-      <CartDrawer
-        isOpen={isCartOpen}
-        onClose={() => setIsCartOpen(false)}
-        cart={cart}
-        onUpdateQuantity={(index, newQty) => {
-          if (newQty <= 0) {
-            setCart((prev) => prev.filter((_, i) => i !== index));
-          } else {
-            setCart((prev) =>
-              prev.map((item, i) => (i === index ? { ...item, quantity: newQty } : item))
-            );
-          }
-        }}
-        onRemoveItem={(index) => setCart((prev) => prev.filter((_, i) => i !== index))}
-        onClearCart={() => setCart([])}
-      />
 
       <AuthModal
         isOpen={isAuthOpen}

@@ -4,13 +4,16 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ShoppingBag, MessageCircle, Scissors, Menu, X, User, LogOut, ShieldCheck, Home, Grid, Mail } from 'lucide-react';
-import { STORE_WHATSAPP_NUMBER } from '@/lib/utils';
+import { toPeruWhatsAppNumber } from '@/lib/storeSettings';
+import { useBusinessConfig } from '@/lib/useBusinessConfig';
+import { getStoredCart } from '@/lib/cart';
 import { CartItem, CategoryType, UserAccount } from '@/lib/types';
+import { gsap } from '@/lib/gsap';
 
 interface NavbarProps {
   cart: CartItem[];
   user: UserAccount | null;
-  onOpenCart: () => void;
+  onOpenCart?: () => void;
   onOpenAuth: () => void;
   onLogout: () => void;
   onSelectCategory?: (category: CategoryType) => void;
@@ -19,15 +22,29 @@ interface NavbarProps {
 export function Navbar({
   cart,
   user,
-  onOpenCart,
   onOpenAuth,
   onLogout,
 }: NavbarProps) {
   const pathname = usePathname();
+  const businessConfig = useBusinessConfig();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
 
-  const totalItemsCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const [storedCartItems, setStoredCartItems] = useState<CartItem[]>([]);
+
+  useEffect(() => {
+    const syncCart = () => setStoredCartItems(getStoredCart());
+    syncCart();
+    window.addEventListener('imidi_cart_updated', syncCart);
+    window.addEventListener('storage', syncCart);
+    return () => {
+      window.removeEventListener('imidi_cart_updated', syncCart);
+      window.removeEventListener('storage', syncCart);
+    };
+  }, []);
+
+  const activeCart = cart && cart.length > 0 ? cart : storedCartItems;
+  const totalItemsCount = activeCart.reduce((sum, item) => sum + item.quantity, 0);
 
   // Cerrar el dropdown al hacer clic fuera
   useEffect(() => {
@@ -40,6 +57,30 @@ export function Navbar({
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
   }, []);
+
+  const [isScrolled, setIsScrolled] = useState(false);
+  const mobileMenuRef = React.useRef<HTMLDivElement>(null);
+
+  // Reducir altura del Navbar al hacer scroll en escritorio
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 30);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Animar apertura de menú móvil con GSAP
+  useEffect(() => {
+    if (mobileMenuOpen && mobileMenuRef.current) {
+      const items = mobileMenuRef.current.querySelectorAll('.mobile-menu-item');
+      gsap.fromTo(
+        items,
+        { y: -10, opacity: 0 },
+        { y: 0, opacity: 1, duration: 0.25, stagger: 0.04, ease: 'power2.out' }
+      );
+    }
+  }, [mobileMenuOpen]);
 
   // Bloquear scroll del body cuando menú está abierto
   useEffect(() => {
@@ -55,9 +96,9 @@ export function Navbar({
   const isAdminUser = user?.role === 'admin';
 
   return (
-    <header className="sticky top-0 z-50 bg-[#F8F5EF]/95 backdrop-blur-md text-[#213B3E] border-b border-[#C4D8D9] shadow-md">
+    <header className="sticky top-0 z-50 bg-[#F8F5EF]/95 backdrop-blur-md text-[#213B3E] border-b border-[#C4D8D9] shadow-md transition-all duration-300">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-14 sm:h-20 gap-2 sm:gap-4">
+        <div className={`flex items-center justify-between gap-2 sm:gap-4 transition-all duration-300 ${isScrolled ? 'h-14 sm:h-16' : 'h-14 sm:h-20'}`}>
           
           {/* Logo Oficial con enlace a la raíz / */}
           <Link
@@ -197,15 +238,10 @@ export function Navbar({
               </button>
             )}
 
-            {/* Lista de Encargos - Abre gaveta o navega a /encargos */}
+            {/* Lista de Encargos - Navega directamente a la página /encargos */}
             <Link
               href="/encargos"
-              onClick={(e) => {
-                if (onOpenCart && pathname !== '/encargos') {
-                  e.preventDefault();
-                  onOpenCart();
-                }
-              }}
+              onClick={() => setMobileMenuOpen(false)}
               className={`relative p-2 sm:p-2.5 rounded-full transition-all border flex items-center gap-1 px-2.5 sm:px-3 whitespace-nowrap shadow-sm ${
                 pathname === '/encargos'
                   ? 'bg-[#437579] text-white border-[#437579] shadow-md'
@@ -225,7 +261,7 @@ export function Navbar({
 
             {/* Botón WhatsApp Directo */}
             <a
-              href={`https://wa.me/${STORE_WHATSAPP_NUMBER}?text=${encodeURIComponent('¡Hola Confecciones a Crochet Imidi! Quisiera consultar disponibilidad y hacer un pedido.')}`}
+              href={`https://wa.me/${toPeruWhatsAppNumber(businessConfig.phone)}?text=${encodeURIComponent(`¡Hola ${businessConfig.name}! Quisiera consultar disponibilidad y hacer un pedido.`)}`}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center justify-center space-x-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs p-2 sm:px-3.5 sm:py-2.5 rounded-full shadow-md transition-all whitespace-nowrap"
@@ -240,6 +276,7 @@ export function Navbar({
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="lg:hidden p-2 text-[#213B3E] hover:text-[#437579] focus:outline-none"
+              aria-label={mobileMenuOpen ? 'Cerrar menú de navegación' : 'Abrir menú de navegación'}
             >
               {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
@@ -252,19 +289,19 @@ export function Navbar({
             mobileMenuOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
           }`}
         >
-          <div className="py-4 border-t border-[#C4D8D9] space-y-2 bg-[#F8F5EF] px-2 rounded-b-2xl font-bold text-xs">
+          <div ref={mobileMenuRef} className="py-4 border-t border-[#C4D8D9] space-y-2 bg-[#F8F5EF] px-2 rounded-b-2xl font-bold text-xs">
             {!user ? (
               <button
                 onClick={() => {
                   setMobileMenuOpen(false);
                   onOpenAuth();
                 }}
-                className="block w-full text-left px-3 py-3 bg-[#437579] text-white rounded-lg font-bold"
+                className="mobile-menu-item block w-full text-left px-3 py-3 bg-[#437579] text-white rounded-lg font-bold"
               >
                 🔑 Iniciar Sesión / Registro
               </button>
             ) : (
-              <div className="px-3 py-2.5 bg-white rounded-lg border border-[#C4D8D9] flex items-center justify-between">
+              <div className="mobile-menu-item px-3 py-2.5 bg-white rounded-lg border border-[#C4D8D9] flex items-center justify-between">
                 <span>Hola, <strong>{user.name}</strong></span>
                 <button onClick={onLogout} className="text-rose-600 text-xs font-bold">Salir</button>
               </div>
@@ -273,7 +310,7 @@ export function Navbar({
             <Link
               href="/"
               onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center space-x-2 w-full text-left px-3.5 py-3 bg-white border border-[#C4D8D9] text-[#213B3E] rounded-xl font-bold"
+              className="mobile-menu-item flex items-center space-x-2 w-full text-left px-3.5 py-3 bg-white border border-[#C4D8D9] text-[#213B3E] rounded-xl font-bold"
             >
               <Home className="w-4 h-4 text-[#437579]" />
               <span>Inicio</span>
@@ -282,7 +319,7 @@ export function Navbar({
             <Link
               href="/catalogo"
               onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center space-x-2 w-full text-left px-3.5 py-3 bg-white border border-[#C4D8D9] text-[#213B3E] rounded-xl font-bold"
+              className="mobile-menu-item flex items-center space-x-2 w-full text-left px-3.5 py-3 bg-white border border-[#C4D8D9] text-[#213B3E] rounded-xl font-bold"
             >
               <Grid className="w-4 h-4 text-[#D89B53]" />
               <span>Catálogo de Prendas</span>
@@ -291,7 +328,7 @@ export function Navbar({
             <Link
               href="/arreglos"
               onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center space-x-2 w-full text-left px-3.5 py-3 bg-white border border-[#C4D8D9] text-[#213B3E] rounded-xl font-bold"
+              className="mobile-menu-item flex items-center space-x-2 w-full text-left px-3.5 py-3 bg-white border border-[#C4D8D9] text-[#213B3E] rounded-xl font-bold"
             >
               <Scissors className="w-4 h-4 text-[#D89B53]" />
               <span>Costura & Arreglos $</span>
@@ -300,7 +337,7 @@ export function Navbar({
             <Link
               href="/contacto"
               onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center space-x-2 w-full text-left px-3.5 py-3 bg-white border border-[#C4D8D9] text-[#213B3E] rounded-xl font-bold"
+              className="mobile-menu-item flex items-center space-x-2 w-full text-left px-3.5 py-3 bg-white border border-[#C4D8D9] text-[#213B3E] rounded-xl font-bold"
             >
               <Mail className="w-4 h-4 text-emerald-600" />
               <span>Contacto</span>
@@ -310,7 +347,7 @@ export function Navbar({
               <Link
                 href="/admin"
                 onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center space-x-2 w-full text-left px-3.5 py-3 bg-slate-900 text-white rounded-xl font-bold"
+                className="mobile-menu-item flex items-center space-x-2 w-full text-left px-3.5 py-3 bg-slate-900 text-white rounded-xl font-bold"
               >
                 <ShieldCheck className="w-4 h-4 text-emerald-400" />
                 <span>Panel Admin</span>

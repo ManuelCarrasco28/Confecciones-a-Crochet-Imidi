@@ -1,38 +1,44 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { gsap } from '@/lib/gsap';
 import Link from 'next/link';
 import { Navbar } from '@/components/Navbar';
 import { Hero } from '@/components/Hero';
 import { ProductCard } from '@/components/ProductCard';
 import { ProductModal } from '@/components/ProductModal';
-import { CartDrawer } from '@/components/CartDrawer';
 import { Footer } from '@/components/Footer';
 import { AuthModal } from '@/components/AuthModal';
 import { Toast } from '@/components/Toast';
 
+import { getStoredCart, addToStoredCart } from '@/lib/cart';
+import { getCachedProducts, setCachedProducts } from '@/lib/productsCache';
 import { Product, CartItem, YARN_OPTIONS, UserAccount, YarnType, CategoryType } from '@/lib/types';
 import { INITIAL_PRODUCTS } from '@/lib/mockData';
 import { createClient } from '@/lib/supabase/client';
 import { Award, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function HomePage() {
-  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   
-  const [cart, setCart] = useState<CartItem[]>(() => {
-    if (typeof window === 'undefined') return [];
-    try {
-      const savedCart = localStorage.getItem('imidi_cart');
-      return savedCart ? JSON.parse(savedCart) : [];
-    } catch {
-      return [];
-    }
-  });
-  
+  const [cart, setCart] = useState<CartItem[]>([]);
+
+  // Sincronizar carrito con localStorage
+  useEffect(() => {
+    const loadCart = () => setCart(getStoredCart());
+    loadCart();
+    window.addEventListener('imidi_cart_updated', loadCart);
+    window.addEventListener('storage', loadCart);
+    return () => {
+      window.removeEventListener('imidi_cart_updated', loadCart);
+      window.removeEventListener('storage', loadCart);
+    };
+  }, []);
+
   // Modales y Estados de Usuario
-  const [isCartOpen, setIsCartOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [user, setUser] = useState<UserAccount | null>(null);
 
@@ -88,13 +94,16 @@ export default function HomePage() {
 
   // Cargar productos reales de Supabase
   useEffect(() => {
+    let cancelled = false;
+
     async function loadProductsFromSupabase() {
       try {
         const supabase = createClient();
         const { data, error } = await supabase.from('products').select('*');
-        
-        if (data && data.length > 0 && !error) {
-          const mapped: Product[] = data.map((item: {
+
+        if (error) throw error;
+
+        const mapped: Product[] = (data || []).map((item: {
             id: string;
             name: string;
             category: CategoryType;
@@ -119,13 +128,23 @@ export default function HomePage() {
             imageUrl: item.image_url,
             inStock: item.in_stock ?? true,
           }));
-          setProducts(mapped);
-        }
+
+        if (cancelled) return;
+        setProducts(mapped);
+        setCachedProducts(mapped);
       } catch {
-        // Ignorar fallos de carga
+        if (cancelled) return;
+        const cached = getCachedProducts();
+        setProducts(cached.length > 0 ? cached : INITIAL_PRODUCTS);
+      } finally {
+        if (!cancelled) setIsLoadingProducts(false);
       }
     }
     loadProductsFromSupabase();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Filtrar solo productos disponibles en stock para los clientes
@@ -133,12 +152,12 @@ export default function HomePage() {
     return products.filter((p) => p.inStock !== false);
   }, [products]);
 
-  // Timer para Carrusel Automático Infinito (Se desplaza solo cada 3.5 segundos)
+  // Timer para Carrusel Automático Infinito (Se desplaza solo cada 15 segundos)
   useEffect(() => {
     if (isHovered || availableProducts.length === 0) return;
     const interval = setInterval(() => {
       setCarouselIndex((prevIndex) => (prevIndex + 1) % availableProducts.length);
-    }, 3500);
+    }, 15000);
 
     return () => clearInterval(interval);
   }, [isHovered, availableProducts.length]);
@@ -153,14 +172,7 @@ export default function HomePage() {
     });
   }, [availableProducts, carouselIndex]);
 
-  // Guardar carrito
-  useEffect(() => {
-    try {
-      localStorage.setItem('imidi_cart', JSON.stringify(cart));
-    } catch {
-      // Ignorar fallos de escritura en localStorage
-    }
-  }, [cart]);
+
 
   const handleLoginSuccess = (userData: UserAccount) => {
     setUser(userData);
@@ -183,64 +195,37 @@ export default function HomePage() {
     customNotes?: string,
     selectedYarn?: string
   ) => {
-    setCart((prevCart) => {
-      const existingIndex = prevCart.findIndex(
-        (item) =>
-          item.product.id === product.id &&
-          item.selectedSize === selectedSize &&
-          item.selectedColor === selectedColor &&
-          item.selectedYarn === selectedYarn &&
-          (item.customNotes || '') === (customNotes || '')
-      );
-
-      if (existingIndex > -1) {
-        const updated = [...prevCart];
-        updated[existingIndex].quantity = Math.min(50, updated[existingIndex].quantity + 1);
-        return updated;
-      } else {
-        return [
-          ...prevCart,
-          {
-            product,
-            quantity: 1,
-            selectedSize: selectedSize || product.sizes[0],
-            selectedColor: selectedColor || product.colors[0],
-            selectedYarn: selectedYarn || 'Algodón',
-            customNotes,
-          },
-        ];
-      }
-    });
-
+    const updated = addToStoredCart(product, selectedSize, selectedColor, customNotes, selectedYarn);
+    setCart(updated);
     setToastMessage(`¡"${product.name}" añadido a tus Encargos! 🛍️`);
   };
 
-  const handleUpdateQuantity = (index: number, newQty: number) => {
-    if (newQty <= 0) {
-      handleRemoveItem(index);
-      return;
-    }
-    setCart((prev) => {
-      const updated = [...prev];
-      updated[index].quantity = newQty;
-      return updated;
+
+
+  const carouselTrackRef = useRef<HTMLDivElement>(null);
+
+  // Animación suave GSAP al cambiar de slide en el carrusel
+  useEffect(() => {
+    if (!carouselTrackRef.current) return;
+    const mm = gsap.matchMedia();
+    mm.add('(prefers-reduced-motion: no-preference)', () => {
+      gsap.fromTo(
+        carouselTrackRef.current,
+        { opacity: 0.85, x: 20 },
+        { opacity: 1, x: 0, duration: 0.45, ease: 'power2.out' }
+      );
     });
-  };
-
-  const handleRemoveItem = (index: number) => {
-    setCart((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const handleClearCart = () => {
-    setCart([]);
-  };
+    return () => mm.revert();
+  }, [carouselIndex]);
 
   const nextSlide = () => {
-    setCarouselIndex((prev) => (prev + 1) % products.length);
+    if (availableProducts.length === 0) return;
+    setCarouselIndex((prev) => (prev + 1) % availableProducts.length);
   };
 
   const prevSlide = () => {
-    setCarouselIndex((prev) => (prev - 1 + products.length) % products.length);
+    if (availableProducts.length === 0) return;
+    setCarouselIndex((prev) => (prev - 1 + availableProducts.length) % availableProducts.length);
   };
 
   return (
@@ -250,7 +235,6 @@ export default function HomePage() {
       <Navbar
         cart={cart}
         user={user}
-        onOpenCart={() => setIsCartOpen(true)}
         onOpenAuth={() => setIsAuthOpen(true)}
         onLogout={handleLogout}
       />
@@ -259,12 +243,8 @@ export default function HomePage() {
         {/* Banner Principal Hero */}
         <Hero />
 
-        {/* Sección de Carrusel Cíclico Infinito de Prendas Destacadas (Cero espacios en blanco) */}
-        <section
-          className="py-16 bg-[#F8F5EF] overflow-hidden relative"
-          onMouseEnter={() => setIsHovered(true)}
-          onMouseLeave={() => setIsHovered(false)}
-        >
+        {/* Sección de Carrusel Cíclico Infinito de Prendas Destacadas */}
+        <section className="py-16 bg-[#F8F5EF] overflow-hidden relative">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
             
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mb-6">
@@ -287,8 +267,14 @@ export default function HomePage() {
               </Link>
             </div>
 
-            {/* Pista del Carrusel Cíclico Infinito con Botones Flotantes Laterales */}
-            <div className="relative group px-1 sm:px-0">
+            {/* Pista del Carrusel Cíclico Infinito con Pausa al Cursor */}
+            <div
+              className="relative group px-1 sm:px-0"
+              onMouseEnter={() => setIsHovered(true)}
+              onMouseLeave={() => setIsHovered(false)}
+              onTouchStart={() => setIsHovered(true)}
+              onTouchEnd={() => setIsHovered(false)}
+            >
               
               {/* Botón Flotante Lateral Izquierda (Atrás) */}
               <button
@@ -310,43 +296,36 @@ export default function HomePage() {
                 <ChevronRight className="w-4 h-4 sm:w-7 sm:h-7 stroke-[2.5]" />
               </button>
 
-              {/* Grilla Cíclica de Productos (2 columnas en móvil / 4 columnas en desktop) */}
-              <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-6 py-2 px-1 transition-all duration-500">
-                {visibleProducts.slice(0, 4).map((prod, idx) => (
-                  <div key={`${prod.id}-${idx}`} className={idx >= 2 ? 'hidden sm:block' : 'block'}>
-                    <ProductCard
-                      product={prod}
-                      onOpenModal={(product) => setSelectedProduct(product)}
-                      onAddToCart={(product) => handleAddToCart(product)}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Indicadores de Puntos (Dots) Cíclicos */}
-            {products.length > 1 && (
-              <div className="flex justify-center items-center space-x-1.5 sm:space-x-2 mt-4 sm:mt-8 overflow-x-auto max-w-full py-1">
-                {products.map((_, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setCarouselIndex(idx)}
-                    className={`h-2 sm:h-2.5 rounded-full transition-all duration-300 shrink-0 ${
-                      carouselIndex === idx ? 'w-6 sm:w-8 bg-[#437579]' : 'w-2 sm:w-2.5 bg-[#C4D8D9] hover:bg-[#437579]/60'
-                    }`}
-                    aria-label={`Ir a prenda ${idx + 1}`}
-                  />
-                ))}
-              </div>
-            )}
-
-            <div className="mt-8 text-center">
-              <Link
-                href="/catalogo"
-                className="inline-flex items-center space-x-2 bg-white border border-[#437579] text-[#437579] hover:bg-[#E2ECEC] font-bold text-xs px-6 py-3.5 rounded-2xl shadow-sm transition-all"
+              {/* Grilla Cíclica de Productos Animada con GSAP */}
+              <div
+                ref={carouselTrackRef}
+                className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-6 py-2 px-1"
               >
-                <span>Explorar Todas las Categorías y Filtros →</span>
-              </Link>
+                {isLoadingProducts
+                  ? Array.from({ length: 4 }).map((_, idx) => (
+                      <div
+                        key={`featured-skeleton-${idx}`}
+                        className={`${idx >= 2 ? 'hidden sm:block' : 'block'} overflow-hidden rounded-2xl sm:rounded-3xl border border-[#C4D8D9] bg-white`}
+                        aria-hidden="true"
+                      >
+                        <div className="aspect-[4/5] bg-[#E2ECEC] animate-pulse" />
+                        <div className="p-2.5 sm:p-5 space-y-3">
+                          <div className="h-4 rounded bg-[#D5E3E3] animate-pulse" />
+                          <div className="h-3 w-3/4 rounded bg-[#E2ECEC] animate-pulse" />
+                          <div className="h-8 rounded-xl bg-[#D5E3E3] animate-pulse" />
+                        </div>
+                      </div>
+                    ))
+                  : visibleProducts.slice(0, 4).map((prod, idx) => (
+                      <div key={`${prod.id}-${idx}`} className={idx >= 2 ? 'hidden sm:block' : 'block'}>
+                        <ProductCard
+                          product={prod}
+                          onOpenModal={(product) => setSelectedProduct(product)}
+                          onAddToCart={(product) => handleAddToCart(product)}
+                        />
+                      </div>
+                    ))}
+              </div>
             </div>
           </div>
         </section>
@@ -360,16 +339,6 @@ export default function HomePage() {
         product={selectedProduct}
         onClose={() => setSelectedProduct(null)}
         onAddToCart={handleAddToCart}
-      />
-
-      {/* Lista de Encargos Lateral */}
-      <CartDrawer
-        isOpen={isCartOpen}
-        onClose={() => setIsCartOpen(false)}
-        cart={cart}
-        onUpdateQuantity={handleUpdateQuantity}
-        onRemoveItem={handleRemoveItem}
-        onClearCart={handleClearCart}
       />
 
       {/* Modal de Autenticación */}

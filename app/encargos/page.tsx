@@ -6,27 +6,44 @@ import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import { AuthModal } from '@/components/AuthModal';
 
-import { CartItem, UserAccount, YARN_OPTIONS, COLOR_OPTIONS } from '@/lib/types';
+import { getStoredCart, saveStoredCart } from '@/lib/cart';
+import { fetchStoreAttributes, getStoredAttributes, StoreAttributes } from '@/lib/attributes';
+import { getCategorySizeType } from '@/lib/categories';
+import { CartItem, UserAccount } from '@/lib/types';
 import { formatCurrency, generateWhatsAppCartLink } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { ShoppingBag, Trash2, Plus, Minus, MessageCircle, ArrowLeft, ShieldCheck, Heart } from 'lucide-react';
+import { gsap } from '@/lib/gsap';
 
 export default function EncargosPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [storeAttrs, setStoreAttrs] = useState<StoreAttributes>(getStoredAttributes);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [user, setUser] = useState<UserAccount | null>(null);
 
-  // Cargar carrito de localStorage en cliente (evita mismatch de hidratación SSR)
+  // Escuchar cambios en atributos globales de la tienda
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('imidi_cart');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        setTimeout(() => setCart(parsed), 0);
-      }
-    } catch {
-      // Ignorar
-    }
+    const handleAttrsUpdate = () => setStoreAttrs(getStoredAttributes());
+    fetchStoreAttributes().then(setStoreAttrs).catch(() => {
+      // Mantener atributos locales como respaldo si no hay conexión.
+    });
+    window.addEventListener('imidi_attributes_updated', handleAttrsUpdate);
+    return () => window.removeEventListener('imidi_attributes_updated', handleAttrsUpdate);
+  }, []);
+
+  // Cargar carrito de localStorage en cliente y escuchar actualizaciones en tiempo real
+  useEffect(() => {
+    const loadCartFromStorage = () => {
+      setCart(getStoredCart());
+    };
+
+    loadCartFromStorage();
+    window.addEventListener('imidi_cart_updated', loadCartFromStorage);
+    window.addEventListener('storage', loadCartFromStorage);
+    return () => {
+      window.removeEventListener('imidi_cart_updated', loadCartFromStorage);
+      window.removeEventListener('storage', loadCartFromStorage);
+    };
   }, []);
 
   // Sync Auth
@@ -52,21 +69,12 @@ export default function EncargosPage() {
     syncAuth();
   }, []);
 
-  // Save Cart to LocalStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem('imidi_cart', JSON.stringify(cart));
-    } catch {
-      // Ignorar
-    }
-  }, [cart]);
-
   const handleUpdateItem = (index: number, updatedItem: Partial<CartItem>) => {
-    setCart((prev) => {
-      const copy = [...prev];
-      copy[index] = { ...copy[index], ...updatedItem };
-      return copy;
-    });
+    const current = getStoredCart();
+    if (!current[index]) return;
+    current[index] = { ...current[index], ...updatedItem };
+    saveStoredCart(current);
+    setCart(current);
   };
 
   const handleUpdateQuantity = (index: number, newQty: number) => {
@@ -74,18 +82,41 @@ export default function EncargosPage() {
       handleRemoveItem(index);
       return;
     }
-    setCart((prev) => {
-      const copy = [...prev];
-      copy[index].quantity = newQty;
-      return copy;
-    });
+    const current = getStoredCart();
+    if (!current[index]) return;
+    current[index].quantity = newQty;
+    saveStoredCart(current);
+    setCart(current);
   };
 
-  const handleRemoveItem = (index: number) => {
-    setCart((prev) => prev.filter((_, i) => i !== index));
+  const handleRemoveItem = (index: number, element?: HTMLElement | null) => {
+    if (element) {
+      gsap.to(element, {
+        height: 0,
+        opacity: 0,
+        scale: 0.95,
+        marginBottom: 0,
+        paddingTop: 0,
+        paddingBottom: 0,
+        duration: 0.3,
+        ease: 'power2.inOut',
+        onComplete: () => {
+          const current = getStoredCart();
+          const updated = current.filter((_, i) => i !== index);
+          saveStoredCart(updated);
+          setCart(updated);
+        },
+      });
+    } else {
+      const current = getStoredCart();
+      const updated = current.filter((_, i) => i !== index);
+      saveStoredCart(updated);
+      setCart(updated);
+    }
   };
 
   const handleClearCart = () => {
+    saveStoredCart([]);
     setCart([]);
   };
 
@@ -162,183 +193,221 @@ export default function EncargosPage() {
               
               {/* Lista de Ítems Personalizables (Izquierda) */}
               <div className="lg:col-span-8 space-y-4">
-                {cart.map((item, index) => (
-                  <div
-                    key={`${item.product.id}-${index}`}
-                    className="bg-white p-4 sm:p-6 rounded-3xl border border-[#C4D8D9] shadow-sm space-y-4 transition-all"
-                  >
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-[#E2ECEC]">
-                      <div className="flex items-center space-x-4">
-                        <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-[#F8F5EF] overflow-hidden border border-[#C4D8D9] shrink-0">
-                          <img
-                            src={item.product.imageUrl}
-                            alt={item.product.name}
-                            className="w-full h-full object-cover"
-                          />
+                {cart.map((item, index) => {
+                  const sizeType = getCategorySizeType(item.product.category);
+
+                  // Asegurar que las opciones incluyan la talla seleccionada
+                  const availableSizes = sizeType === 'dimensiones'
+                    ? Array.from(new Set(['30x30 cm', '40x40 cm', '50x50 cm', 'A Medida', ...(item.selectedSize ? [item.selectedSize] : [])]))
+                    : Array.from(new Set([...storeAttrs.sizes, ...(item.selectedSize ? [item.selectedSize] : [])]));
+
+                  const availableYarns = Array.from(new Set([...storeAttrs.yarns, ...(item.selectedYarn ? [item.selectedYarn] : [])]));
+                  const availableColors = Array.from(new Set([...storeAttrs.colors, ...(item.selectedColor ? [item.selectedColor] : [])]));
+
+                  return (
+                    <div
+                      key={`${item.product.id}-${item.selectedSize}-${item.selectedColor}-${item.selectedYarn}-${index}`}
+                      className="bg-white p-4 sm:p-6 rounded-3xl border border-[#C4D8D9] shadow-sm space-y-4 transition-all"
+                    >
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-[#E2ECEC]">
+                        <div className="flex items-center space-x-4">
+                          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-[#F8F5EF] overflow-hidden border border-[#C4D8D9] shrink-0">
+                            <img
+                              src={item.product.imageUrl}
+                              alt={item.product.name}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] uppercase font-extrabold text-[#437579] bg-[#E2ECEC] px-2.5 py-0.5 rounded-full border border-[#437579]/20">
+                                Prenda #{index + 1}
+                              </span>
+                              <span className="text-[10px] uppercase font-bold text-[#597477]">
+                                · {item.product.category}
+                              </span>
+                            </div>
+                            <h3 className="font-serif text-base sm:text-lg font-bold text-[#213B3E] mt-1">
+                              {item.product.name}
+                            </h3>
+                            <span className="text-[#437579] font-bold text-sm sm:text-base">
+                              {formatCurrency(item.product.price)} c/u
+                            </span>
+                          </div>
                         </div>
+
+                        {/* Controles de Cantidad y Eliminar */}
+                        <div className="flex items-center space-x-3 self-end sm:self-auto">
+                          <div className="flex items-center space-x-1.5 border border-[#C4D8D9] rounded-xl p-1 bg-[#F8F5EF]">
+                            <button
+                              onClick={() => handleUpdateQuantity(index, item.quantity - 1)}
+                              className="p-1.5 hover:bg-white rounded-lg text-[#213B3E] transition-colors"
+                              title="Disminuir"
+                            >
+                              <Minus className="w-3.5 h-3.5" />
+                            </button>
+                            <span className="text-xs font-extrabold px-2">{item.quantity}</span>
+                            <button
+                              onClick={() => handleUpdateQuantity(index, item.quantity + 1)}
+                              className="p-1.5 hover:bg-white rounded-lg text-[#213B3E] transition-colors"
+                              title="Aumentar"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+
+                          <button
+                            onClick={() => handleRemoveItem(index)}
+                            className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition-colors"
+                            title="Eliminar del encargo"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Controles de Personalización por Ítem */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs pt-1">
+                        
+                        {/* Talla / Dimensión */}
                         <div>
-                          <span className="text-[10px] uppercase font-bold text-[#437579] bg-[#E2ECEC] px-2 py-0.5 rounded-full">
-                            {item.product.category}
-                          </span>
-                          <h3 className="font-serif text-base sm:text-lg font-bold text-[#213B3E] mt-1">
-                            {item.product.name}
-                          </h3>
-                          <span className="text-[#437579] font-bold text-sm sm:text-base">
-                            {formatCurrency(item.product.price)} c/u
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Controles de Cantidad y Eliminar */}
-                      <div className="flex items-center space-x-3 self-end sm:self-auto">
-                        <div className="flex items-center space-x-1.5 border border-[#C4D8D9] rounded-xl p-1 bg-[#F8F5EF]">
-                          <button
-                            onClick={() => handleUpdateQuantity(index, item.quantity - 1)}
-                            className="p-1.5 hover:bg-white rounded-lg text-[#213B3E] transition-colors"
-                            title="Disminuir"
-                          >
-                            <Minus className="w-3.5 h-3.5" />
-                          </button>
-                          <span className="text-xs font-extrabold px-2">{item.quantity}</span>
-                          <button
-                            onClick={() => handleUpdateQuantity(index, item.quantity + 1)}
-                            className="p-1.5 hover:bg-white rounded-lg text-[#213B3E] transition-colors"
-                            title="Aumentar"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                          </button>
+                          <label className="block text-[11px] font-bold text-[#213B3E] mb-1">
+                            📏 Talla / Medida:
+                          </label>
+                          {sizeType === 'unica' ? (
+                            <div className="w-full bg-[#E2ECEC] border border-[#437579]/30 rounded-xl px-3 py-2 text-xs font-bold text-[#437579]">
+                              👑 Talla Única (Estándar)
+                            </div>
+                          ) : (
+                            <select
+                              value={item.selectedSize || availableSizes[0]}
+                              onChange={(e) => handleUpdateItem(index, { selectedSize: e.target.value })}
+                              className="w-full bg-[#F8F5EF] border border-[#C4D8D9] rounded-xl px-3 py-2 text-xs font-bold text-[#213B3E] focus:outline-none focus:border-[#437579]"
+                            >
+                              {availableSizes.map((sz) => (
+                                <option key={sz} value={sz}>
+                                  Talla: {sz}
+                                </option>
+                              ))}
+                            </select>
+                          )}
                         </div>
 
-                        <button
-                          onClick={() => handleRemoveItem(index)}
-                          className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition-colors"
-                          title="Eliminar del encargo"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
+                        {/* Hilo */}
+                        <div>
+                          <label className="block text-[11px] font-bold text-[#213B3E] mb-1">
+                            🧵 Tipo de Hilo:
+                          </label>
+                          <select
+                            value={item.selectedYarn || availableYarns[0]}
+                            onChange={(e) => handleUpdateItem(index, { selectedYarn: e.target.value })}
+                            className="w-full bg-[#F8F5EF] border border-[#C4D8D9] rounded-xl px-3 py-2 text-xs font-bold text-[#213B3E] focus:outline-none focus:border-[#437579]"
+                          >
+                            {availableYarns.map((yarn) => (
+                              <option key={yarn} value={yarn}>
+                                {yarn}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
 
-                    {/* Controles de Personalización por Ítem */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs pt-1">
-                      
-                      {/* Talla */}
-                      <div>
-                        <label className="block text-[11px] font-bold text-[#213B3E] mb-1">
-                          📐 Talla / Dimensión:
-                        </label>
-                        <select
-                          value={item.selectedSize || 'M'}
-                          onChange={(e) => handleUpdateItem(index, { selectedSize: e.target.value })}
-                          className="w-full bg-[#F8F5EF] border border-[#C4D8D9] rounded-xl px-3 py-2 text-xs font-bold text-[#213B3E] focus:outline-none focus:border-[#437579]"
-                        >
-                          <option value="S">Talla S</option>
-                          <option value="M">Talla M</option>
-                          <option value="L">Talla L</option>
-                          <option value="XL">Talla XL</option>
-                          <option value="A Medida">Confección a Medida Exacta</option>
-                        </select>
-                      </div>
+                        {/* Color */}
+                        <div>
+                          <label className="block text-[11px] font-bold text-[#213B3E] mb-1">
+                            🎨 Color de Hilo:
+                          </label>
+                          <select
+                            value={item.selectedColor || availableColors[0]}
+                            onChange={(e) => handleUpdateItem(index, { selectedColor: e.target.value })}
+                            className="w-full bg-[#F8F5EF] border border-[#C4D8D9] rounded-xl px-3 py-2 text-xs font-bold text-[#213B3E] focus:outline-none focus:border-[#437579]"
+                          >
+                            {availableColors.map((col) => (
+                              <option key={col} value={col}>
+                                {col}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
 
-                      {/* Hilo */}
-                      <div>
-                        <label className="block text-[11px] font-bold text-[#213B3E] mb-1">
-                          🧵 Tipo de Hilo:
-                        </label>
-                        <select
-                          value={item.selectedYarn || 'Algodón'}
-                          onChange={(e) => handleUpdateItem(index, { selectedYarn: e.target.value })}
-                          className="w-full bg-[#F8F5EF] border border-[#C4D8D9] rounded-xl px-3 py-2 text-xs font-bold text-[#213B3E] focus:outline-none focus:border-[#437579]"
-                        >
-                          {YARN_OPTIONS.map((yarn) => (
-                            <option key={yarn} value={yarn}>
-                              {yarn}
-                            </option>
-                          ))}
-                        </select>
                       </div>
 
-                      {/* Color */}
+                      {/* Notas Especiales / Medidas Exactas */}
                       <div>
                         <label className="block text-[11px] font-bold text-[#213B3E] mb-1">
-                          🎨 Color de Hilo:
+                          📝 Indicaciones o Medidas Especiales:
                         </label>
-                        <select
-                          value={item.selectedColor || COLOR_OPTIONS[0]}
-                          onChange={(e) => handleUpdateItem(index, { selectedColor: e.target.value })}
-                          className="w-full bg-[#F8F5EF] border border-[#C4D8D9] rounded-xl px-3 py-2 text-xs font-bold text-[#213B3E] focus:outline-none focus:border-[#437579]"
-                        >
-                          {COLOR_OPTIONS.map((col) => (
-                            <option key={col} value={col}>
-                              {col}
-                            </option>
-                          ))}
-                        </select>
+                        <input
+                          type="text"
+                          value={item.customNotes || ''}
+                          onChange={(e) => handleUpdateItem(index, { customNotes: e.target.value })}
+                          placeholder="Ej. Busto 92cm, largo 55cm, escote más cerrado..."
+                          className="w-full bg-[#F8F5EF] border border-[#C4D8D9] rounded-xl px-3.5 py-2 text-xs text-[#213B3E] font-medium focus:outline-none focus:border-[#437579]"
+                        />
                       </div>
 
                     </div>
-
-                    {/* Notas Especiales / Medidas Exactas */}
-                    <div>
-                      <label className="block text-[11px] font-bold text-[#213B3E] mb-1">
-                        📝 Indicaciones o Medidas Especiales:
-                      </label>
-                      <input
-                        type="text"
-                        value={item.customNotes || ''}
-                        onChange={(e) => handleUpdateItem(index, { customNotes: e.target.value })}
-                        placeholder="Ej. Busto 92cm, largo 55cm, escote más cerrado..."
-                        className="w-full bg-[#F8F5EF] border border-[#C4D8D9] rounded-xl px-3.5 py-2 text-xs text-[#213B3E] font-medium focus:outline-none focus:border-[#437579]"
-                      />
-                    </div>
-
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* Resumen de Pago y Enviar a WhatsApp (Derecha) */}
               <div className="lg:col-span-4 bg-white p-6 rounded-3xl border border-[#C4D8D9] shadow-lg space-y-5 lg:sticky lg:top-24">
                 
                 <h3 className="font-serif text-lg font-bold text-[#213B3E] border-b border-[#E2ECEC] pb-3">
-                  Resumen de tu Encargo
+                  Resumen de tu Pedido ({cart.reduce((sum, item) => sum + item.quantity, 0)} prendas)
                 </h3>
 
-                <div className="bg-[#E2ECEC] p-3 rounded-2xl border border-[#437579]/20 flex items-start space-x-2 text-xs text-[#213B3E]">
-                  <ShieldCheck className="w-4 h-4 text-[#437579] shrink-0 mt-0.5" />
-                  <span>
-                    <strong>Atención Directa:</strong> Al presionar el botón verde abajo, se enviará este resumen con tus tallas e hilos seleccionados a nuestro WhatsApp oficial para coordinar el tiempo de tejido y la entrega.
-                  </span>
+                <div className="space-y-2 text-xs">
+                  {cart.map((item, i) => (
+                    <div key={i} className="flex justify-between items-start text-[#597477] border-b border-dashed border-[#E2ECEC] pb-2">
+                      <div>
+                        <p className="font-bold text-[#213B3E]">
+                          Prenda #{i + 1}: {item.product.name} x{item.quantity}
+                        </p>
+                        <p className="text-[10px]">
+                          Talla: <span className="font-bold text-[#437579]">{item.selectedSize}</span> · {item.selectedYarn}
+                        </p>
+                      </div>
+                      <span className="font-bold text-[#213B3E]">
+                        {formatCurrency(item.product.price * item.quantity)}
+                      </span>
+                    </div>
+                  ))}
                 </div>
 
-                <div className="space-y-2 text-xs text-[#597477] border-t border-[#E2ECEC] pt-3">
-                  <div className="flex justify-between">
-                    <span>Prendas a confeccionar:</span>
-                    <strong className="text-[#213B3E]">{cart.reduce((sum, item) => sum + item.quantity, 0)} unidades</strong>
-                  </div>
-                  <div className="flex justify-between items-center text-sm font-bold text-[#213B3E] pt-2 border-t border-[#E2ECEC]">
+                <div className="pt-3 border-t border-[#C4D8D9] space-y-1">
+                  <div className="flex justify-between items-center text-sm font-extrabold text-[#213B3E]">
                     <span>Total Estimado:</span>
-                    <span className="text-[#437579] font-serif text-xl font-bold">
-                      {formatCurrency(total)}
-                    </span>
+                    <span className="text-xl font-bold text-[#437579]">{formatCurrency(total)}</span>
                   </div>
+                  <p className="text-[10px] text-[#597477]">
+                    * El pago se acuerda directamente por WhatsApp.
+                  </p>
                 </div>
 
+                {/* Enviar Solicitud Oficial por WhatsApp */}
                 <a
                   href={whatsappUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full inline-flex items-center justify-center space-x-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-4 px-6 rounded-2xl shadow-lg transition-all uppercase tracking-wider text-xs"
+                  className="w-full inline-flex items-center justify-center space-x-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-4 px-6 rounded-2xl shadow-lg hover:shadow-xl transition-all text-xs uppercase tracking-wider hover:-translate-y-0.5"
                 >
                   <MessageCircle className="w-5 h-5" />
-                  <span>Enviar Encargo Completo por WhatsApp</span>
+                  <span>Enviar Pedido a WhatsApp ({cart.length})</span>
                 </a>
 
+                {/* Vaciar Carrito */}
                 <button
                   onClick={handleClearCart}
-                  className="w-full text-center text-xs text-rose-600 hover:underline font-bold py-1"
+                  className="w-full text-center text-xs font-bold text-rose-500 hover:text-rose-700 py-1 transition-colors"
                 >
-                  Vaciar lista de encargos
+                  Vaciar toda la lista
                 </button>
+
+                <div className="pt-2 border-t border-[#E2ECEC] flex items-center space-x-2 text-[11px] text-[#597477]">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Trato directo con la artesana. Confección garantizada.</span>
+                </div>
 
               </div>
 
@@ -348,16 +417,16 @@ export default function EncargosPage() {
         </div>
       </main>
 
-      <Footer user={user} />
+      <Footer />
 
-      <AuthModal
-        isOpen={isAuthOpen}
-        onClose={() => setIsAuthOpen(false)}
-        onLoginSuccess={(account) => {
-          setUser(account);
-          setIsAuthOpen(false);
-        }}
-      />
+      {/* Modal Autenticación */}
+      {isAuthOpen && (
+        <AuthModal
+          isOpen={isAuthOpen}
+          onClose={() => setIsAuthOpen(false)}
+          onLoginSuccess={(userData) => setUser(userData)}
+        />
+      )}
     </div>
   );
 }

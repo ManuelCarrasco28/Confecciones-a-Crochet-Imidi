@@ -1,4 +1,6 @@
-export type CategoryType = 'todas' | 'blusas' | 'vestidos' | 'tapetes' | 'diadema' | 'gorros';
+export type CategoryType = 'todas' | 'blusas' | 'vestidos' | 'tapetes' | 'diadema' | 'gorros' | string;
+
+export type SizeTypeMode = 'vestir' | 'unica' | 'dimensiones';
 
 export type YarnType = 'Algodón' | 'Silvia' | 'Tren' | 'Fino Cable' | 'Quesito' | 'Pavino en Cono' | 'Nylon';
 

@@ -1,4 +1,5 @@
 import { YARN_OPTIONS as DEFAULT_YARNS, COLOR_OPTIONS as DEFAULT_COLORS, SIZE_OPTIONS as DEFAULT_SIZES } from './types';
+import { createClient } from './supabase/client';
 
 const STORAGE_KEY = 'imidi_attributes';
 
@@ -39,4 +40,39 @@ export function saveStoredAttributes(attrs: StoreAttributes): void {
   } catch (e) {
     console.error('Error saving attributes to localStorage', e);
   }
+}
+
+function normalizeAttributes(value: Partial<StoreAttributes> | null | undefined): StoreAttributes {
+  return {
+    yarns: Array.isArray(value?.yarns) && value.yarns.length > 0 ? value.yarns : DEFAULT_YARNS,
+    colors: Array.isArray(value?.colors) && value.colors.length > 0 ? value.colors : DEFAULT_COLORS,
+    sizes: Array.isArray(value?.sizes) && value.sizes.length > 0 ? value.sizes : DEFAULT_SIZES,
+  };
+}
+
+export async function fetchStoreAttributes(): Promise<StoreAttributes> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from('store_attributes')
+    .select('yarns, colors, sizes')
+    .eq('id', 'default')
+    .maybeSingle();
+
+  if (error) throw error;
+  const attrs = normalizeAttributes(data);
+  saveStoredAttributes(attrs);
+  return attrs;
+}
+
+export async function saveStoreAttributes(attrs: StoreAttributes): Promise<void> {
+  const normalized = normalizeAttributes(attrs);
+  const supabase = createClient();
+  const { error } = await supabase.from('store_attributes').upsert({
+    id: 'default',
+    ...normalized,
+    updated_at: new Date().toISOString(),
+  });
+
+  if (error) throw error;
+  saveStoredAttributes(normalized);
 }

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Tag, Plus, Edit, Trash2, Check, X, RotateCcw, Scissors, Palette, Search } from 'lucide-react';
-import { getStoredAttributes, saveStoredAttributes, DEFAULT_ATTRIBUTES, StoreAttributes } from '@/lib/attributes';
+import { fetchStoreAttributes, getStoredAttributes, saveStoreAttributes, DEFAULT_ATTRIBUTES, StoreAttributes } from '@/lib/attributes';
 
 interface AdminAttributesModuleProps {
   isDark?: boolean;
@@ -23,39 +23,48 @@ export function AdminAttributesModule({ isDark = false }: AdminAttributesModuleP
 
   useEffect(() => {
     const handleUpdate = () => setAttrs(getStoredAttributes());
+    fetchStoreAttributes().then(setAttrs).catch(() => {
+      // Mantener el respaldo local si Supabase no está disponible.
+    });
     window.addEventListener('imidi_attributes_updated', handleUpdate);
     return () => window.removeEventListener('imidi_attributes_updated', handleUpdate);
   }, []);
 
-  const handleSaveAll = (updated: StoreAttributes) => {
-    setAttrs(updated);
-    saveStoredAttributes(updated);
-    setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 2500);
+  const handleSaveAll = async (updated: StoreAttributes) => {
+    try {
+      await saveStoreAttributes(updated);
+      setAttrs(updated);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 2500);
+      return true;
+    } catch {
+      alert('No se pudo guardar en Supabase. Revisa la conexión y vuelve a intentarlo.');
+      return false;
+    }
   };
 
   // Agregar elemento mediante mini ventana
-  const handleAddItem = (e: React.FormEvent) => {
+  const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();
     const val = newItemInput.trim();
     if (!val) return;
 
     if (activeSubTab === 'hilos') {
       if (attrs.yarns.includes(val)) return alert('Este tipo de hilo ya existe.');
-      handleSaveAll({ ...attrs, yarns: [...attrs.yarns, val] });
+      if (!(await handleSaveAll({ ...attrs, yarns: [...attrs.yarns, val] }))) return;
     } else if (activeSubTab === 'colores') {
       if (attrs.colors.includes(val)) return alert('Este color ya existe.');
-      handleSaveAll({ ...attrs, colors: [...attrs.colors, val] });
+      if (!(await handleSaveAll({ ...attrs, colors: [...attrs.colors, val] }))) return;
     } else {
       if (attrs.sizes.includes(val)) return alert('Esta talla ya existe.');
-      handleSaveAll({ ...attrs, sizes: [...attrs.sizes, val] });
+      if (!(await handleSaveAll({ ...attrs, sizes: [...attrs.sizes, val] }))) return;
     }
     setNewItemInput('');
     setIsAddModalOpen(false);
   };
 
   // Guardar edición mediante mini ventana
-  const handleSaveEdit = (e: React.FormEvent) => {
+  const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (editingIndex === null) return;
     const val = editingText.trim();
@@ -64,22 +73,22 @@ export function AdminAttributesModule({ isDark = false }: AdminAttributesModuleP
     if (activeSubTab === 'hilos') {
       const copy = [...attrs.yarns];
       copy[editingIndex] = val;
-      handleSaveAll({ ...attrs, yarns: copy });
+      if (!(await handleSaveAll({ ...attrs, yarns: copy }))) return;
     } else if (activeSubTab === 'colores') {
       const copy = [...attrs.colors];
       copy[editingIndex] = val;
-      handleSaveAll({ ...attrs, colors: copy });
+      if (!(await handleSaveAll({ ...attrs, colors: copy }))) return;
     } else {
       const copy = [...attrs.sizes];
       copy[editingIndex] = val;
-      handleSaveAll({ ...attrs, sizes: copy });
+      if (!(await handleSaveAll({ ...attrs, sizes: copy }))) return;
     }
     setEditingIndex(null);
     setEditingText('');
   };
 
   // Eliminar elemento
-  const handleDeleteItem = (idx: number) => {
+  const handleDeleteItem = async (idx: number) => {
     const list = activeSubTab === 'hilos' ? attrs.yarns : activeSubTab === 'colores' ? attrs.colors : attrs.sizes;
     if (list.length <= 1) {
       alert('Debe existir al menos 1 elemento registrado.');
@@ -89,17 +98,17 @@ export function AdminAttributesModule({ isDark = false }: AdminAttributesModuleP
     if (!window.confirm('¿Estás seguro de que deseas eliminar este elemento?')) return;
 
     if (activeSubTab === 'hilos') {
-      handleSaveAll({ ...attrs, yarns: attrs.yarns.filter((_, i) => i !== idx) });
+      await handleSaveAll({ ...attrs, yarns: attrs.yarns.filter((_, i) => i !== idx) });
     } else if (activeSubTab === 'colores') {
-      handleSaveAll({ ...attrs, colors: attrs.colors.filter((_, i) => i !== idx) });
+      await handleSaveAll({ ...attrs, colors: attrs.colors.filter((_, i) => i !== idx) });
     } else {
-      handleSaveAll({ ...attrs, sizes: attrs.sizes.filter((_, i) => i !== idx) });
+      await handleSaveAll({ ...attrs, sizes: attrs.sizes.filter((_, i) => i !== idx) });
     }
   };
 
-  const handleResetDefault = () => {
+  const handleResetDefault = async () => {
     if (window.confirm('¿Deseas restablecer las opciones a los valores iniciales de fábrica?')) {
-      handleSaveAll(DEFAULT_ATTRIBUTES);
+      await handleSaveAll(DEFAULT_ATTRIBUTES);
     }
   };
 
@@ -133,25 +142,25 @@ export function AdminAttributesModule({ isDark = false }: AdminAttributesModuleP
     <div className="space-y-5 max-w-5xl mx-auto">
       
       {/* 1. Selector de Pestañas de Atributos + Botones de Acción */}
-      <div className={`${cardBg} p-4 rounded-3xl border flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4`}>
+      <div className={`${cardBg} p-3 sm:p-4 rounded-2xl sm:rounded-3xl border flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4`}>
         
         {/* Pestañas Principales */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
+        <div className="grid grid-cols-3 gap-1.5 sm:flex sm:items-center sm:gap-2">
           <button
             onClick={() => { setActiveSubTab('hilos'); setEditingIndex(null); }}
-            className={`flex items-center space-x-2 px-4 py-2.5 rounded-2xl text-xs font-extrabold transition-all border shrink-0 ${
+            className={`min-w-0 flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-1.5 sm:px-4 py-2.5 rounded-xl sm:rounded-2xl text-[10px] sm:text-xs font-extrabold transition-all border sm:shrink-0 ${
               activeSubTab === 'hilos'
                 ? 'bg-[#437579] text-white border-[#437579] shadow-md'
                 : isDark ? 'bg-slate-950 text-slate-300 border-slate-800 hover:bg-slate-800' : 'bg-white text-[#213B3E] border-[#B2CFCF] hover:bg-[#E2ECEC]'
             }`}
           >
             <Scissors className="w-4 h-4 text-amber-500" />
-            <span>Tipos de Hilo ({attrs.yarns.length})</span>
+            <span className="leading-tight text-center">Hilos ({attrs.yarns.length})</span>
           </button>
 
           <button
             onClick={() => { setActiveSubTab('colores'); setEditingIndex(null); }}
-            className={`flex items-center space-x-2 px-4 py-2.5 rounded-2xl text-xs font-extrabold transition-all border shrink-0 ${
+            className={`min-w-0 flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-1.5 sm:px-4 py-2.5 rounded-xl sm:rounded-2xl text-[10px] sm:text-xs font-extrabold transition-all border sm:shrink-0 ${
               activeSubTab === 'colores'
                 ? 'bg-[#437579] text-white border-[#437579] shadow-md'
                 : isDark ? 'bg-slate-950 text-slate-300 border-slate-800 hover:bg-slate-800' : 'bg-white text-[#213B3E] border-[#B2CFCF] hover:bg-[#E2ECEC]'
@@ -163,7 +172,7 @@ export function AdminAttributesModule({ isDark = false }: AdminAttributesModuleP
 
           <button
             onClick={() => { setActiveSubTab('tallas'); setEditingIndex(null); }}
-            className={`flex items-center space-x-2 px-4 py-2.5 rounded-2xl text-xs font-extrabold transition-all border shrink-0 ${
+            className={`min-w-0 flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-1.5 sm:px-4 py-2.5 rounded-xl sm:rounded-2xl text-[10px] sm:text-xs font-extrabold transition-all border sm:shrink-0 ${
               activeSubTab === 'tallas'
                 ? 'bg-[#437579] text-white border-[#437579] shadow-md'
                 : isDark ? 'bg-slate-950 text-slate-300 border-slate-800 hover:bg-slate-800' : 'bg-white text-[#213B3E] border-[#B2CFCF] hover:bg-[#E2ECEC]'
@@ -175,7 +184,7 @@ export function AdminAttributesModule({ isDark = false }: AdminAttributesModuleP
         </div>
 
         {/* Indicador de Éxito & Restablecimiento */}
-        <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+        <div className="flex items-center justify-end gap-2 shrink-0 sm:self-auto">
           {saveSuccess && (
             <span className="bg-emerald-500/20 text-emerald-600 border border-emerald-500/30 px-3 py-1.5 rounded-full text-xs font-extrabold flex items-center gap-1 animate-in fade-in">
               <Check className="w-4 h-4 stroke-[3]" />
@@ -195,7 +204,7 @@ export function AdminAttributesModule({ isDark = false }: AdminAttributesModuleP
       </div>
 
       {/* 2. Tabla Única de Atributos (Sin columna de Estado de Visibilidad) */}
-      <div className={`${cardBg} rounded-3xl border overflow-hidden`}>
+      <div className={`${cardBg} rounded-2xl sm:rounded-3xl border overflow-hidden`}>
         
         {/* Cabecera de Tabla con Título, Buscador y Botón Crear Mini Ventana */}
         <div className="p-4 sm:p-5 border-b border-slate-700/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -210,7 +219,7 @@ export function AdminAttributesModule({ isDark = false }: AdminAttributesModuleP
             </p>
           </div>
 
-          <div className="flex items-center gap-2.5 w-full sm:w-auto">
+          <div className="flex flex-col min-[420px]:flex-row items-stretch min-[420px]:items-center gap-2.5 w-full sm:w-auto">
             {/* Buscador Integrado */}
             <div className="relative flex-1 sm:w-56">
               <input
@@ -226,7 +235,7 @@ export function AdminAttributesModule({ isDark = false }: AdminAttributesModuleP
             {/* Botón Abrir Mini Ventana Agregar */}
             <button
               onClick={() => { setNewItemInput(''); setIsAddModalOpen(true); }}
-              className="bg-[#437579] hover:bg-[#335C60] text-white font-extrabold text-xs px-4 py-2.5 rounded-2xl shadow-md transition-all inline-flex items-center space-x-1.5 shrink-0"
+              className="bg-[#437579] hover:bg-[#335C60] text-white font-extrabold text-xs px-4 py-2.5 rounded-2xl shadow-md transition-all inline-flex items-center justify-center space-x-1.5 shrink-0"
             >
               <Plus className="w-4 h-4" />
               <span>Crear {currentTabConfig.singular}</span>
@@ -237,7 +246,7 @@ export function AdminAttributesModule({ isDark = false }: AdminAttributesModuleP
 
         {/* Tabla Única y Limpia */}
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+          <table className="admin-responsive-table w-full text-left text-xs">
             <thead>
               <tr className={`${tableHeaderBg} uppercase text-[10px] tracking-wider border-b border-slate-700/20`}>
                 <th className="py-3 px-4 w-12 text-center">#</th>
@@ -248,7 +257,7 @@ export function AdminAttributesModule({ isDark = false }: AdminAttributesModuleP
             <tbody className="divide-y divide-slate-700/10">
               {filteredList.length === 0 ? (
                 <tr>
-                  <td colSpan={3} className={`py-8 text-center ${subText} italic`}>
+                  <td data-label="" colSpan={3} className={`py-8 text-center ${subText} italic`}>
                     No se encontraron elementos registrados en esta categoría.
                   </td>
                 </tr>
@@ -261,12 +270,12 @@ export function AdminAttributesModule({ isDark = false }: AdminAttributesModuleP
                     }`}
                   >
                     {/* # Posición */}
-                    <td className={`py-3.5 px-4 text-center font-extrabold ${subText}`}>
+                    <td data-label="#" className={`py-3.5 px-4 text-center font-extrabold ${subText}`}>
                       {position + 1}
                     </td>
 
                     {/* Nombre del Elemento */}
-                    <td className="py-3.5 px-4">
+                    <td data-label="Nombre" className="py-3.5 px-4">
                       <span className={`font-extrabold text-sm ${textPrimary} flex items-center gap-2`}>
                         {activeSubTab === 'hilos' && '🧵'}
                         {activeSubTab === 'colores' && '🎨'}
@@ -276,7 +285,7 @@ export function AdminAttributesModule({ isDark = false }: AdminAttributesModuleP
                     </td>
 
                     {/* Acciones Editar y Eliminar */}
-                    <td className="py-3.5 px-4 text-right pr-6">
+                    <td data-label="Acciones" className="py-3.5 px-4 text-right pr-6">
                       <div className="inline-flex items-center space-x-1.5">
                         <button
                           onClick={() => {
@@ -310,11 +319,12 @@ export function AdminAttributesModule({ isDark = false }: AdminAttributesModuleP
 
       {/* 3. MINI VENTANA (MODAL POPUP) AGREGAR ELEMENTO (ESTILO FACEBOOK FLOATING LABEL) */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className={`${cardBg} w-full max-w-md rounded-3xl p-6 shadow-2xl border relative animate-in zoom-in-95 duration-200`}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className={`${cardBg} w-full max-w-md max-h-[94dvh] overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-2xl border relative animate-in zoom-in-95 duration-200`}>
             
             <button
               onClick={() => setIsAddModalOpen(false)}
+              aria-label="Cerrar ventana para crear atributo"
               className="absolute top-4 right-4 p-1.5 rounded-full text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-all"
             >
               <X className="w-5 h-5" />
@@ -356,17 +366,17 @@ export function AdminAttributesModule({ isDark = false }: AdminAttributesModuleP
                 </label>
               </div>
 
-              <div className="flex items-center justify-end space-x-2 pt-2 border-t border-slate-700/20">
+              <div className="flex flex-col-reverse min-[420px]:flex-row items-stretch min-[420px]:items-center min-[420px]:justify-end gap-2 pt-2 border-t border-slate-700/20">
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
-                  className="px-4 py-2.5 rounded-2xl text-xs font-extrabold text-stone-600 dark:text-slate-300 hover:bg-stone-100 dark:hover:bg-slate-800 transition-all"
+                  className="px-4 py-2.5 rounded-2xl text-xs text-center font-extrabold text-stone-600 dark:text-slate-300 hover:bg-stone-100 dark:hover:bg-slate-800 transition-all"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="bg-[#437579] hover:bg-[#335C60] text-white font-extrabold text-xs px-5 py-2.5 rounded-2xl shadow-md transition-all inline-flex items-center space-x-1.5"
+                  className="bg-[#437579] hover:bg-[#335C60] text-white font-extrabold text-xs px-5 py-2.5 rounded-2xl shadow-md transition-all inline-flex items-center justify-center space-x-1.5"
                 >
                   <Check className="w-4 h-4 stroke-[3]" />
                   <span>Guardar {currentTabConfig.singular}</span>
@@ -381,11 +391,12 @@ export function AdminAttributesModule({ isDark = false }: AdminAttributesModuleP
 
       {/* 4. MINI VENTANA (MODAL POPUP) EDITAR ELEMENTO (ESTILO FACEBOOK FLOATING LABEL) */}
       {editingIndex !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className={`${cardBg} w-full max-w-md rounded-3xl p-6 shadow-2xl border relative animate-in zoom-in-95 duration-200`}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className={`${cardBg} w-full max-w-md max-h-[94dvh] overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-2xl border relative animate-in zoom-in-95 duration-200`}>
             
             <button
               onClick={() => setEditingIndex(null)}
+              aria-label="Cerrar ventana para editar atributo"
               className="absolute top-4 right-4 p-1.5 rounded-full text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-all"
             >
               <X className="w-5 h-5" />
@@ -427,17 +438,17 @@ export function AdminAttributesModule({ isDark = false }: AdminAttributesModuleP
                 </label>
               </div>
 
-              <div className="flex items-center justify-end space-x-2 pt-2 border-t border-slate-700/20">
+              <div className="flex flex-col-reverse min-[420px]:flex-row items-stretch min-[420px]:items-center min-[420px]:justify-end gap-2 pt-2 border-t border-slate-700/20">
                 <button
                   type="button"
                   onClick={() => setEditingIndex(null)}
-                  className="px-4 py-2.5 rounded-2xl text-xs font-extrabold text-stone-600 dark:text-slate-300 hover:bg-stone-100 dark:hover:bg-slate-800 transition-all"
+                  className="px-4 py-2.5 rounded-2xl text-xs text-center font-extrabold text-stone-600 dark:text-slate-300 hover:bg-stone-100 dark:hover:bg-slate-800 transition-all"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="bg-[#437579] hover:bg-[#335C60] text-white font-extrabold text-xs px-5 py-2.5 rounded-2xl shadow-md transition-all inline-flex items-center space-x-1.5"
+                  className="bg-[#437579] hover:bg-[#335C60] text-white font-extrabold text-xs px-5 py-2.5 rounded-2xl shadow-md transition-all inline-flex items-center justify-center space-x-1.5"
                 >
                   <Check className="w-4 h-4 stroke-[3]" />
                   <span>Actualizar Nombre</span>

@@ -31,10 +31,11 @@ import {
   Menu,
   Tag,
 } from 'lucide-react';
-import { Product, YARN_OPTIONS, COLOR_OPTIONS, CategoryType, UserAccount, CustomOrderRow } from '@/lib/types';
-import { INITIAL_PRODUCTS } from '@/lib/mockData';
+import { Product, YARN_OPTIONS, COLOR_OPTIONS, CategoryType, UserAccount, CustomOrderRow, SizeTypeMode } from '@/lib/types';
+import { CategoryDefinition, fetchStoreCategories, getStoredCategories, saveStoreCategories } from '@/lib/categories';
 import { formatCurrency } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
+import { DEFAULT_BUSINESS_CONFIG, fetchBusinessConfig, saveBusinessConfig } from '@/lib/storeSettings';
 import { AdminAttributesModule } from '@/components/AdminAttributesModule';
 
 type NewUserForm = {
@@ -65,27 +66,35 @@ export default function AdminPage() {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [mobileAdminNavOpen, setMobileAdminNavOpen] = useState(false);
 
+  useEffect(() => {
+    if (!mobileAdminNavOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMobileAdminNavOpen(false);
+    };
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', handleEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleEscape);
+    };
+  }, [mobileAdminNavOpen]);
+
   // Validación de Autenticación
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
 
-  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
+  const [products, setProducts] = useState<Product[]>([]);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'productos' | 'categorias' | 'atributos' | 'pedidos' | 'solicitudes' | 'clientes' | 'usuarios' | 'config'>('dashboard');
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter] = useState<string>('todas');
 
-  const [categories, setCategories] = useState([
-    { id: 'blusas', name: 'Blusas', description: 'Blusas caladas, tops y pecheras a crochet' },
-    { id: 'vestidos', name: 'Vestidos', description: 'Vestidos de fiesta, playa y salidas' },
-    { id: 'tapetes', name: 'Tapetes', description: 'Centros de mesa, caminos y tapetería' },
-    { id: 'diadema', name: 'Diademas', description: 'Vinchas y accesorios para el cabello' },
-    { id: 'gorros', name: 'Gorros', description: 'Boinas y gorros boho abrigadores' },
-  ]);
-
+  const [categories, setCategories] = useState<CategoryDefinition[]>(getStoredCategories);
   const [editingCatId, setEditingCatId] = useState<string | null>(null);
   const [newCatName, setNewCatName] = useState('');
   const [newCatDesc, setNewCatDesc] = useState('');
+  const [newCatSizeType, setNewCatSizeType] = useState<SizeTypeMode>('vestir');
   const [isEditingCategoryModal, setIsEditingCategoryModal] = useState(false);
   const [categorySearchTerm, setCategorySearchTerm] = useState('');
 
@@ -111,23 +120,7 @@ export default function AdminPage() {
   const [customRequests, setCustomRequests] = useState<CustomOrderRow[]>([]);
 
   // Configuración del Módulo de Negocio
-  const [businessConfig, setBusinessConfig] = useState(() => {
-    const defaultConfig = {
-      name: 'Confecciones a Crochet Imidi',
-      phone: '935240485',
-      email: 'josemanuelcarrascomillan@gmail.com',
-      facebook: 'https://www.facebook.com/profile.php?id=100054925651425',
-      address: 'Jaén, Perú',
-      schedule: 'Lunes a Sábado: 8:00 am - 8:00 pm',
-    };
-    if (typeof window === 'undefined') return defaultConfig;
-    try {
-      const saved = localStorage.getItem('imidi_business_config');
-      return saved ? JSON.parse(saved) : defaultConfig;
-    } catch {
-      return defaultConfig;
-    }
-  });
+  const [businessConfig, setBusinessConfig] = useState(DEFAULT_BUSINESS_CONFIG);
   const [configSuccess, setConfigSuccess] = useState(false);
 
   // Verificación de Autenticación
@@ -254,6 +247,17 @@ export default function AdminPage() {
       } catch {
         // Ignorar errores de carga
       }
+
+      try {
+        const [storedCategories, storedBusinessConfig] = await Promise.all([
+          fetchStoreCategories(),
+          fetchBusinessConfig(),
+        ]);
+        setCategories(storedCategories);
+        setBusinessConfig(storedBusinessConfig);
+      } catch {
+        // Mantener valores de respaldo si las tablas aún no están disponibles.
+      }
     }
 
     loadData();
@@ -359,7 +363,7 @@ export default function AdminPage() {
   };
 
   // Guardar / Editar Categoría CRUD con Sanitización
-  const handleSaveCategory = (e: React.FormEvent) => {
+  const handleSaveCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     const name = newCatName.trim();
     if (!name) return;
@@ -372,9 +376,12 @@ export default function AdminPage() {
         .replace(/[^a-z0-9]+/g, '_')
         .replace(/^_+|_+$/g, '');
 
+    let updatedList: CategoryDefinition[];
     if (editingCatId) {
-      setCategories((prev) =>
-        prev.map((c) => (c.id === editingCatId ? { ...c, name, description: newCatDesc.trim() } : c))
+      updatedList = categories.map((c) =>
+        c.id === editingCatId
+          ? { ...c, name, description: newCatDesc.trim(), sizeType: newCatSizeType }
+          : c
       );
       setEditingCatId(null);
     } else {
@@ -384,25 +391,36 @@ export default function AdminPage() {
         return;
       }
 
-      setCategories((prev) => [
-        ...prev,
+      updatedList = [
+        ...categories,
         {
           id: slug,
+          slug,
           name,
           description: newCatDesc.trim() || 'Categoría de productos a crochet',
+          sizeType: newCatSizeType,
         },
-      ]);
+      ];
     }
 
+    try {
+      await saveStoreCategories(updatedList);
+      setCategories(updatedList);
+    } catch {
+      alert('No se pudo guardar la categoría en Supabase.');
+      return;
+    }
     setNewCatName('');
     setNewCatDesc('');
+    setNewCatSizeType('vestir');
     setIsEditingCategoryModal(false);
   };
 
-  const handleStartEditCategory = (cat: { id: string; name: string; description: string }) => {
+  const handleStartEditCategory = (cat: CategoryDefinition) => {
     setEditingCatId(cat.id);
     setNewCatName(cat.name);
     setNewCatDesc(cat.description);
+    setNewCatSizeType(cat.sizeType || 'vestir');
     setIsEditingCategoryModal(true);
   };
 
@@ -410,29 +428,32 @@ export default function AdminPage() {
     setEditingCatId(null);
     setNewCatName('');
     setNewCatDesc('');
+    setNewCatSizeType('vestir');
     setIsEditingCategoryModal(false);
   };
 
-  const handleDeleteCategory = (id: string) => {
+  const handleDeleteCategory = async (id: string) => {
     const target = categories.find((c) => c.id === id);
     if (!target) return;
 
     const isUsed = products.some(
-      (p) =>
-        p.category.toLowerCase() === target.id.toLowerCase() ||
-        p.category.toLowerCase() === target.name.toLowerCase()
+      (p) => p.category === id || p.category.toLowerCase() === target.name.toLowerCase()
     );
 
     if (isUsed) {
-      alert(`No se puede eliminar la categoría "${target.name}" porque existen productos en el catálogo vinculados a ella.`);
+      alert(`No se puede eliminar "${target.name}" porque existen productos asociados a esta categoría.`);
       return;
     }
 
-    if (!window.confirm(`¿Estás seguro de que deseas eliminar la categoría "${target.name}"?`)) {
-      return;
+    if (confirm(`¿Estás seguro de eliminar la categoría "${target.name}"?`)) {
+      const updatedList = categories.filter((c) => c.id !== id);
+      try {
+        await saveStoreCategories(updatedList);
+        setCategories(updatedList);
+      } catch {
+        alert('No se pudo eliminar la categoría de Supabase.');
+      }
     }
-
-    setCategories((prev) => prev.filter((c) => c.id !== id));
   };
 
   const filteredCategories = categories.filter((cat) => {
@@ -644,19 +665,10 @@ export default function AdminPage() {
   const handleSaveBusinessConfig = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      localStorage.setItem('imidi_business_config', JSON.stringify(businessConfig));
-      const supabase = createClient();
-      await supabase.from('store_settings').upsert({
-        id: 'default',
-        name: businessConfig.name,
-        phone: businessConfig.phone,
-        email: businessConfig.email,
-        facebook_url: businessConfig.facebook,
-        address: businessConfig.address,
-        schedule: businessConfig.schedule,
-      });
+      await saveBusinessConfig(businessConfig);
     } catch {
-      // Ignorar
+      alert('No se pudo guardar la configuración en Supabase.');
+      return;
     }
 
     setConfigSuccess(true);
@@ -664,23 +676,11 @@ export default function AdminPage() {
   };
 
   // Restablecer/Cancelar Formulario de Negocio
-  const handleResetBusinessConfig = () => {
+  const handleResetBusinessConfig = async () => {
     try {
-      const saved = localStorage.getItem('imidi_business_config');
-      if (saved) {
-        setBusinessConfig(JSON.parse(saved));
-      } else {
-        setBusinessConfig({
-          name: 'Confecciones a Crochet Imidi',
-          phone: '935240485',
-          email: 'josemanuelcarrascomillan@gmail.com',
-          facebook: 'https://www.facebook.com/profile.php?id=100054925651425',
-          address: 'Jaén, Perú',
-          schedule: 'Lunes a Sábado: 8:00 am - 8:00 pm',
-        });
-      }
+      setBusinessConfig(await fetchBusinessConfig());
     } catch {
-      // Ignorar
+      setBusinessConfig(DEFAULT_BUSINESS_CONFIG);
     }
   };
 
@@ -702,9 +702,9 @@ export default function AdminPage() {
   const tableHeaderBg = isDark ? 'bg-slate-950 text-slate-300' : 'bg-[#DDE8E8] text-[#162C2E] font-extrabold';
 
   return (
-    <div className={`min-h-screen ${pageBg} flex flex-col font-sans transition-colors duration-200 selection:bg-[#437579] selection:text-white`}>
+    <div className={`h-dvh overflow-hidden ${pageBg} flex flex-col font-sans transition-colors duration-200 selection:bg-[#437579] selection:text-white`}>
 
-      <div className="flex flex-1 min-h-screen overflow-hidden">
+      <div className="flex flex-1 min-h-0 overflow-hidden">
 
         {/* Sidebar Lateral Fijo (Desktop) */}
         <aside className={`w-72 ${sidebarBg} border-r flex flex-col justify-between p-4 shrink-0 hidden md:flex transition-colors`}>
@@ -850,7 +850,7 @@ export default function AdminPage() {
         {mobileAdminNavOpen && (
           <div className="fixed inset-0 z-50 md:hidden">
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setMobileAdminNavOpen(false)} />
-            <aside className={`absolute top-0 left-0 bottom-0 w-72 ${sidebarBg} border-r flex flex-col justify-between p-4 shadow-2xl z-10 overflow-y-auto safe-bottom animate-in slide-in-from-left duration-200`}>
+            <aside className={`absolute top-0 left-0 bottom-0 w-[min(18rem,calc(100vw-2rem))] ${sidebarBg} border-r flex flex-col justify-between p-4 shadow-2xl z-10 overflow-y-auto safe-bottom animate-in slide-in-from-left duration-200 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`} role="dialog" aria-modal="true" aria-label="Navegación del panel administrativo">
               <div className="space-y-6">
 
                 <div className="flex items-center justify-between px-2 py-1 border-b border-slate-800/20 pb-3">
@@ -863,7 +863,7 @@ export default function AdminPage() {
                       <span className="text-[9px] text-[#437579] font-bold block break-all leading-tight">{currentUser?.email}</span>
                     </div>
                   </div>
-                  <button onClick={() => setMobileAdminNavOpen(false)} className="p-1 rounded-lg text-slate-400 hover:text-rose-500">
+                  <button onClick={() => setMobileAdminNavOpen(false)} className="p-1 rounded-lg text-slate-400 hover:text-rose-500" aria-label="Cerrar menu administrativo">
                     <X className="w-5 h-5" />
                   </button>
                 </div>
@@ -999,7 +999,7 @@ export default function AdminPage() {
         {/* Área Principal */}
         <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
 
-          <header className={`h-14 sm:h-16 border-b px-3 sm:px-6 flex items-center justify-between ${headerBg} shrink-0 transition-colors`}>
+          <header className={`h-14 sm:h-16 border-b px-2.5 sm:px-6 flex items-center justify-between gap-2 ${headerBg} shrink-0 transition-colors`}>
             <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
               {/* Botón Hamburger para Móvil */}
               <button
@@ -1010,9 +1010,20 @@ export default function AdminPage() {
                 {mobileAdminNavOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
               </button>
 
-              <h1 className="text-xs sm:text-base font-bold flex items-center gap-1.5 sm:gap-2 truncate">
+              <h1 className="text-xs sm:text-base font-bold flex items-center gap-1.5 sm:gap-2 min-w-0">
                 <ShieldCheck className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-500 shrink-0" />
-                <span className={`truncate ${isDark ? 'text-white' : 'text-[#162C2E]'}`}>
+                <span className={`sm:hidden truncate ${isDark ? 'text-white' : 'text-[#162C2E]'}`}>
+                  {activeTab === 'dashboard' && 'Resumen'}
+                  {activeTab === 'productos' && 'Productos'}
+                  {activeTab === 'categorias' && 'Categorías'}
+                  {activeTab === 'atributos' && 'Atributos'}
+                  {activeTab === 'pedidos' && 'Pedidos'}
+                  {activeTab === 'solicitudes' && 'Solicitudes'}
+                  {activeTab === 'config' && 'Negocio'}
+                  {activeTab === 'clientes' && 'Clientes'}
+                  {activeTab === 'usuarios' && 'Usuarios'}
+                </span>
+                <span className={`hidden sm:inline truncate ${isDark ? 'text-white' : 'text-[#162C2E]'}`}>
                   {activeTab === 'dashboard' && 'Dashboard Principal / Ventas'}
                   {activeTab === 'productos' && 'Gestión de Productos & Catálogo'}
                   {activeTab === 'categorias' && 'Gestión de Categorías de Tejidos'}
@@ -1026,12 +1037,12 @@ export default function AdminPage() {
               </h1>
             </div>
 
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
 
               {/* Botón Switch Modo Claro / Modo Oscuro */}
               <button
                 onClick={() => setTheme(isDark ? 'light' : 'dark')}
-                className={`inline-flex items-center space-x-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all shadow-sm ${isDark
+                className={`inline-flex w-9 h-9 sm:w-auto sm:h-auto items-center justify-center sm:space-x-2 sm:px-3 sm:py-1.5 rounded-xl border text-xs font-bold transition-all shadow-sm ${isDark
                     ? 'bg-slate-800 border-slate-700 text-amber-400 hover:bg-slate-700'
                     : 'bg-white border-[#B2CFCF] text-indigo-700 hover:bg-[#DDE8E8]'
                   }`}
@@ -1052,7 +1063,7 @@ export default function AdminPage() {
 
               <Link
                 href="/"
-                className={`inline-flex items-center space-x-1.5 text-xs px-3.5 py-2 rounded-xl border font-bold transition-all ${isDark ? 'text-slate-300 hover:text-white bg-slate-800 border-slate-700' : 'text-[#162C2E] hover:text-[#437579] bg-white border-[#B2CFCF]'
+                className={`inline-flex w-9 h-9 sm:w-auto sm:h-auto items-center justify-center sm:space-x-1.5 text-xs sm:px-3.5 sm:py-2 rounded-xl border font-bold transition-all ${isDark ? 'text-slate-300 hover:text-white bg-slate-800 border-slate-700' : 'text-[#162C2E] hover:text-[#437579] bg-white border-[#B2CFCF]'
                   }`}
               >
                 <ExternalLink className="w-3.5 h-3.5" />
@@ -1061,53 +1072,53 @@ export default function AdminPage() {
             </div>
           </header>
 
-          <div className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
+          <div className="flex-1 overflow-y-auto overscroll-contain p-2.5 sm:p-6 space-y-4 sm:space-y-6 [scrollbar-width:thin]">
 
             {/* 1. DASHBOARD */}
             {activeTab === 'dashboard' && (
-              <div className="space-y-6">
+              <div className="space-y-4 sm:space-y-6">
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                  <div className={`${cardBg} p-5 rounded-2xl flex items-center justify-between shadow-sm`}>
+                  <div className={`${cardBg} p-3 sm:p-5 rounded-2xl flex items-center justify-between gap-2 shadow-sm`}>
                     <div>
                       <span className={`text-xs uppercase tracking-wider ${subText}`}>Productos en BD</span>
                       <h3 className="text-2xl font-bold mt-1">{products.length}</h3>
                       <p className="text-[11px] text-emerald-600 mt-1 font-extrabold">Sincronizados en Supabase</p>
                     </div>
-                    <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 flex items-center justify-center">
-                      <Package className="w-6 h-6" />
+                    <div className="hidden min-[390px]:flex w-9 h-9 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 items-center justify-center shrink-0">
+                      <Package className="w-4 h-4 sm:w-6 sm:h-6" />
                     </div>
                   </div>
 
-                  <div className={`${cardBg} p-5 rounded-2xl flex items-center justify-between shadow-sm`}>
+                  <div className={`${cardBg} p-3 sm:p-5 rounded-2xl flex items-center justify-between gap-2 shadow-sm`}>
                     <div>
                       <span className={`text-xs uppercase tracking-wider ${subText}`}>Solicitudes a Medida</span>
                       <h3 className="text-2xl font-bold mt-1">{customRequests.length}</h3>
                       <p className="text-[11px] text-sky-600 mt-1 font-extrabold">Cotizaciones por WhatsApp</p>
                     </div>
-                    <div className="w-12 h-12 rounded-2xl bg-sky-500/10 text-sky-500 border border-sky-500/20 flex items-center justify-center">
-                      <Scissors className="w-6 h-6" />
+                    <div className="hidden min-[390px]:flex w-9 h-9 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-sky-500/10 text-sky-500 border border-sky-500/20 items-center justify-center shrink-0">
+                      <Scissors className="w-4 h-4 sm:w-6 sm:h-6" />
                     </div>
                   </div>
 
-                  <div className={`${cardBg} p-5 rounded-2xl flex items-center justify-between shadow-sm`}>
+                  <div className={`${cardBg} p-3 sm:p-5 rounded-2xl flex items-center justify-between gap-2 shadow-sm`}>
                     <div>
                       <span className={`text-xs uppercase tracking-wider ${subText}`}>Categorías</span>
                       <h3 className="text-2xl font-bold mt-1">{categories.length}</h3>
                       <p className="text-[11px] text-amber-600 mt-1 font-extrabold">Categorías de confección</p>
                     </div>
-                    <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-500 border border-amber-500/20 flex items-center justify-center">
-                      <FolderTree className="w-6 h-6" />
+                    <div className="hidden min-[390px]:flex w-9 h-9 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-amber-500/10 text-amber-500 border border-amber-500/20 items-center justify-center shrink-0">
+                      <FolderTree className="w-4 h-4 sm:w-6 sm:h-6" />
                     </div>
                   </div>
 
-                  <div className={`${cardBg} p-5 rounded-2xl flex items-center justify-between shadow-sm`}>
+                  <div className={`${cardBg} p-3 sm:p-5 rounded-2xl flex items-center justify-between gap-2 shadow-sm`}>
                     <div>
                       <span className={`text-xs uppercase tracking-wider ${subText}`}>Usuarios Registrados</span>
                       <h3 className="text-2xl font-bold mt-1">{systemUsers.length}</h3>
                       <p className="text-[11px] text-teal-600 mt-1 font-extrabold">Perfiles en Supabase Auth</p>
                     </div>
-                    <div className="w-12 h-12 rounded-2xl bg-teal-500/10 text-teal-500 border border-teal-500/20 flex items-center justify-center">
-                      <Users className="w-6 h-6" />
+                    <div className="hidden min-[390px]:flex w-9 h-9 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-teal-500/10 text-teal-500 border border-teal-500/20 items-center justify-center shrink-0">
+                      <Users className="w-4 h-4 sm:w-6 sm:h-6" />
                     </div>
                   </div>
                 </div>
@@ -1117,7 +1128,7 @@ export default function AdminPage() {
             {/* 2. PRODUCTOS */}
             {activeTab === 'productos' && (
               <div className="space-y-4">
-                <div className={`flex flex-col sm:flex-row items-center justify-between gap-4 ${cardBg} p-4 rounded-2xl`}>
+                <div className={`flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 ${cardBg} p-3 sm:p-4 rounded-2xl`}>
                   <div className="relative w-full sm:w-80">
                     <Search className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 ${subText}`} />
                     <input
@@ -1153,7 +1164,7 @@ export default function AdminPage() {
 
                 <div className={`${cardBg} rounded-2xl overflow-hidden shadow-sm`}>
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs">
+                    <table className="admin-responsive-table w-full text-left text-xs">
                       <thead className={`${tableHeaderBg} uppercase tracking-wider border-b border-slate-800/20 text-[10px]`}>
                         <tr>
                           <th className="px-4 py-3">Imagen</th>
@@ -1165,26 +1176,35 @@ export default function AdminPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-800/20">
-                        {filteredProducts.map((prod) => (
+                        {filteredProducts.length === 0 ? (
+                          <tr>
+                            <td data-label="" colSpan={6} className={`px-4 py-10 text-center ${subText}`}>
+                              <Package className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                              <span className="block font-semibold">No se encontraron productos.</span>
+                            </td>
+                          </tr>
+                        ) : filteredProducts.map((prod) => (
                           <tr key={prod.id} className="hover:bg-[#437579]/10 transition-colors">
-                            <td className="px-4 py-3">
+                            <td data-label="Imagen" className="px-4 py-3">
                               <div className="w-12 h-12 rounded-xl bg-slate-800/20 overflow-hidden border border-[#C4D8D9]/40 shrink-0">
                                 <img src={prod.imageUrl} alt={prod.name} className="w-full h-full object-cover" />
                               </div>
                             </td>
-                            <td className="px-4 py-3">
-                              <span className="font-bold block">{prod.name}</span>
-                              <span className={`text-[10px] ${subText} line-clamp-1`}>{prod.description}</span>
+                            <td data-label="Producto" className="px-4 py-3">
+                              <div className="min-w-0 text-right sm:text-left">
+                                <span className="font-bold block leading-snug">{prod.name}</span>
+                                <span className={`text-[10px] ${subText} line-clamp-2 sm:line-clamp-1`}>{prod.description}</span>
+                              </div>
                             </td>
-                            <td className="px-4 py-3">
+                            <td data-label="Categoría" className="px-4 py-3">
                               <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold capitalize ${isDark ? 'bg-slate-800 text-slate-300' : 'bg-[#DDE8E8] text-[#162C2E]'}`}>
                                 {prod.category}
                               </span>
                             </td>
-                            <td className="px-4 py-3 font-extrabold text-emerald-600">
+                            <td data-label="Precio" className="px-4 py-3 font-extrabold text-emerald-600">
                               {formatCurrency(prod.price)}
                             </td>
-                            <td className="px-4 py-3">
+                            <td data-label="Disponibilidad" className="px-4 py-3">
                               <button
                                 onClick={() => handleToggleStock(prod)}
                                 className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all ${prod.inStock
@@ -1195,7 +1215,7 @@ export default function AdminPage() {
                                 {prod.inStock ? 'Disponible' : 'Agotado'}
                               </button>
                             </td>
-                            <td className="px-4 py-3 text-right">
+                            <td data-label="Acciones" className="px-4 py-3 text-right">
                               <div className="flex items-center justify-end space-x-1">
                                 <button
                                   onClick={() => {
@@ -1230,7 +1250,7 @@ export default function AdminPage() {
               <div className="space-y-4">
 
                 {/* Toolbar con buscador de categorías y botón modal de creación */}
-                <div className={`flex flex-col sm:flex-row items-center justify-between gap-4 ${cardBg} p-4 rounded-2xl`}>
+                <div className={`flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 ${cardBg} p-3 sm:p-4 rounded-2xl`}>
                   <div className="relative w-full sm:w-80">
                     <Search className={`absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 ${subText}`} />
                     <input
@@ -1258,33 +1278,56 @@ export default function AdminPage() {
 
                 {/* Tabla de Listado CRUD de Categorías */}
                 <div className={`${cardBg} rounded-2xl overflow-hidden shadow-sm`}>
-                  <div className="px-6 py-4 border-b border-slate-800/20 flex items-center justify-between">
+                  <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-800/20 flex items-center justify-between">
                     <h3 className="text-sm font-bold">Listado de Categorías ({filteredCategories.length})</h3>
                   </div>
 
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs">
+                    <table className="admin-responsive-table w-full text-left text-xs">
                       <thead className={`${tableHeaderBg} uppercase tracking-wider border-b border-slate-800/20 text-[10px]`}>
                         <tr>
                           <th className="px-6 py-3">Nombre de la Categoría</th>
                           <th className="px-6 py-3">Descripción</th>
+                          <th className="px-6 py-3">Tipo de Medida / Talla</th>
                           <th className="px-6 py-3">Productos Vinculados</th>
                           <th className="px-6 py-3 text-right">Acciones</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-800/20">
-                        {filteredCategories.map((cat) => {
-                          const count = products.filter((p) => p.category === cat.id).length;
+                        {filteredCategories.length === 0 ? (
+                          <tr>
+                            <td data-label="" colSpan={5} className={`px-4 py-10 text-center ${subText}`}>
+                              <FolderTree className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                              <span className="block font-semibold">No se encontraron categorias.</span>
+                            </td>
+                          </tr>
+                        ) : filteredCategories.map((cat) => {
+                          const count = products.filter((p) => p.category === cat.id || p.category === cat.slug || p.category.toLowerCase() === cat.name.toLowerCase()).length;
                           return (
                             <tr key={cat.id} className="hover:bg-[#437579]/10 transition-colors">
-                              <td className="px-6 py-4 font-bold text-sm">{cat.name}</td>
-                              <td className="px-6 py-4">{cat.description}</td>
-                              <td className="px-6 py-4">
+                              <td data-label="Categoría" className="px-6 py-4 font-bold text-sm">{cat.name}</td>
+                              <td data-label="Descripción" className="px-6 py-4">{cat.description}</td>
+                              <td data-label="Medida" className="px-6 py-4">
+                                {cat.sizeType === 'unica' ? (
+                                  <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                                    👑 Talla Única
+                                  </span>
+                                ) : cat.sizeType === 'dimensiones' ? (
+                                  <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-sky-500/10 text-sky-600 border border-sky-500/20">
+                                    📐 Dimensiones cm
+                                  </span>
+                                ) : (
+                                  <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                                    👗 Tallas de Vestir
+                                  </span>
+                                )}
+                              </td>
+                              <td data-label="Productos" className="px-6 py-4">
                                 <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-indigo-500/10 text-indigo-600 border border-indigo-500/20">
                                   {count} productos
                                 </span>
                               </td>
-                              <td className="px-6 py-4 text-right">
+                              <td data-label="Acciones" className="px-6 py-4 text-right">
                                 <div className="flex items-center justify-end space-x-1">
                                   <button
                                     onClick={() => handleStartEditCategory(cat)}
@@ -1316,10 +1359,10 @@ export default function AdminPage() {
             {/* 3.5 PEDIDOS WHATSAPP & ENCARGOS RECIBIDOS */}
             {activeTab === 'pedidos' && (
               <div className="space-y-4">
-                <div className={`${cardBg} rounded-2xl p-6 space-y-4`}>
-                  <div className="flex items-center justify-between border-b border-slate-800/20 pb-3">
-                    <div>
-                      <h3 className="text-sm font-bold flex items-center gap-2">
+                <div className={`${cardBg} rounded-2xl p-3.5 sm:p-6 space-y-4`}>
+                  <div className="flex items-start justify-between border-b border-slate-800/20 pb-3">
+                    <div className="min-w-0">
+                      <h3 className="text-sm font-bold flex items-start gap-2 leading-snug">
                         <ShoppingBag className="w-4 h-4 text-sky-500" />
                         <span>Pedidos & Cotizaciones a Medida recibidos por WhatsApp ({customRequests.length})</span>
                       </h3>
@@ -1330,7 +1373,7 @@ export default function AdminPage() {
                   </div>
 
                   {customRequests.length === 0 ? (
-                    <div className="text-center py-10 space-y-2">
+                    <div className="text-center py-7 sm:py-10 space-y-2">
                       <ShoppingBag className="w-10 h-10 text-slate-400 mx-auto opacity-50" />
                       <p className={`text-xs ${subText} italic`}>No hay solicitudes registradas por el momento.</p>
                       <p className="text-[11px] text-[#437579]">Los clientes envían sus pedidos a medida a través de /encargos y la portada de la web.</p>
@@ -1338,13 +1381,13 @@ export default function AdminPage() {
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {customRequests.map((req) => (
-                        <div key={req.id} className={`${isDark ? 'bg-slate-950 border-slate-800' : 'bg-white border-[#B2CFCF]'} p-4 rounded-2xl border space-y-3 shadow-sm`}>
-                          <div className="flex justify-between items-start">
-                            <div>
+                        <div key={req.id} className={`${isDark ? 'bg-slate-950 border-slate-800' : 'bg-white border-[#B2CFCF]'} p-3 sm:p-4 rounded-2xl border space-y-3 shadow-sm`}>
+                          <div className="flex justify-between items-start gap-3">
+                            <div className="min-w-0">
                               <span className="font-bold text-sm block">{req.full_name}</span>
                               <span className="text-xs text-[#437579] font-semibold">{req.phone || 'Sin celular registrado'}</span>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 shrink-0">
                               <span className={`text-[10px] ${subText}`}>
                                 {req.created_at ? new Date(req.created_at).toLocaleDateString('es-PE') : 'Reciente'}
                               </span>
@@ -1391,20 +1434,20 @@ export default function AdminPage() {
             {/* 4. SOLICITUDES DE COSTURA REALES CON ACCIONES COMPLETAS */}
             {activeTab === 'solicitudes' && (
               <div className="space-y-4">
-                <div className={`${cardBg} rounded-2xl p-6 space-y-4`}>
-                  <div className="flex items-center justify-between border-b border-slate-800/20 pb-3">
+                <div className={`${cardBg} rounded-2xl p-3.5 sm:p-6 space-y-4`}>
+                  <div className="flex flex-col min-[420px]:flex-row min-[420px]:items-center justify-between gap-1.5 border-b border-slate-800/20 pb-3">
                     <h3 className="text-sm font-bold">Solicitudes de Confección & Costura</h3>
-                    <span className="text-xs text-[#437579] font-bold">{customRequests.length} solicitudes</span>
+                    <span className="text-xs text-[#437579] font-bold shrink-0">{customRequests.length} solicitudes</span>
                   </div>
 
                   {customRequests.length === 0 ? (
                     <p className={`text-xs ${subText} italic`}>No hay solicitudes registradas por el momento.</p>
                   ) : (
                     customRequests.map((req) => (
-                      <div key={req.id} className={`${isDark ? 'bg-slate-950 border-slate-800' : 'bg-white border-[#B2CFCF]'} p-4 rounded-xl border space-y-2.5`}>
-                        <div className="flex justify-between items-center">
-                          <span className="font-bold text-xs">{req.full_name} ({req.phone})</span>
-                          <div className="flex items-center gap-2">
+                      <div key={req.id} className={`${isDark ? 'bg-slate-950 border-slate-800' : 'bg-white border-[#B2CFCF]'} p-3 sm:p-4 rounded-xl border space-y-2.5`}>
+                        <div className="flex flex-col min-[420px]:flex-row min-[420px]:items-center justify-between gap-2">
+                          <span className="font-bold text-xs break-words">{req.full_name} ({req.phone})</span>
+                          <div className="flex items-center justify-between min-[420px]:justify-end gap-2 shrink-0">
                             <span className={`text-[10px] ${subText}`}>
                               {req.created_at ? new Date(req.created_at).toLocaleString('es-PE') : 'Reciente'}
                             </span>
@@ -1437,15 +1480,15 @@ export default function AdminPage() {
             {/* 5. MÓDULO DE NEGOCIO COMPACTO (ALTO CONTRASDE EN MODO CLARO Y OSCURO) */}
             {activeTab === 'config' && (
               <div className="max-w-4xl mx-auto space-y-4">
-                <form onSubmit={handleSaveBusinessConfig} className={`${cardBg} p-5 sm:p-6 rounded-3xl space-y-4 border shadow-md`}>
+                <form onSubmit={handleSaveBusinessConfig} className={`${cardBg} p-3.5 sm:p-6 rounded-2xl sm:rounded-3xl space-y-4 border shadow-md`}>
 
                   {/* Header Compacto con Título e Indicador de Estado */}
-                  <div className="flex items-center justify-between pb-3 border-b border-slate-800/10">
-                    <div className="flex items-center space-x-2.5">
+                  <div className="flex flex-col min-[420px]:flex-row min-[420px]:items-center justify-between gap-2.5 pb-3 border-b border-slate-800/10">
+                    <div className="flex items-start min-[420px]:items-center space-x-2.5 min-w-0">
                       <div className="w-9 h-9 rounded-xl bg-[#437579]/15 text-[#214347] dark:text-[#6BB3B8] flex items-center justify-center shrink-0">
                         <Store className="w-5 h-5" />
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <h3 className={`font-serif text-base font-extrabold ${isDark ? 'text-white' : 'text-[#162C2E]'}`}>
                           Módulo de Negocio & Datos Oficiales
                         </h3>
@@ -1580,11 +1623,11 @@ export default function AdminPage() {
                   </div>
 
                   {/* Botones de Acción Inmediatamente Visibles */}
-                  <div className="pt-3 border-t border-slate-800/10 flex items-center justify-end gap-2.5">
+                  <div className="pt-3 border-t border-slate-800/10 flex flex-col-reverse sm:flex-row items-stretch sm:items-center sm:justify-end gap-2.5">
                     <button
                       type="button"
                       onClick={handleResetBusinessConfig}
-                      className="inline-flex items-center space-x-1.5 bg-white hover:bg-rose-50 text-rose-600 border border-rose-300 font-bold text-xs px-4 py-2.5 rounded-xl shadow-sm transition-all"
+                      className="inline-flex items-center justify-center space-x-1.5 bg-white hover:bg-rose-50 text-rose-600 border border-rose-300 font-bold text-xs px-4 py-2.5 rounded-xl shadow-sm transition-all"
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
                       <span>Deshacer / Cancelar</span>
@@ -1592,7 +1635,7 @@ export default function AdminPage() {
 
                     <button
                       type="submit"
-                      className="inline-flex items-center space-x-1.5 bg-[#437579] hover:bg-[#335C60] text-white font-bold text-xs px-6 py-2.5 rounded-xl shadow-md hover:shadow-lg transition-all uppercase tracking-wider"
+                      className="inline-flex items-center justify-center space-x-1.5 bg-[#437579] hover:bg-[#335C60] text-white font-bold text-xs px-6 py-2.5 rounded-xl shadow-md hover:shadow-lg transition-all uppercase tracking-wider"
                     >
                       <Save className="w-3.5 h-3.5" />
                       <span>Guardar Configuración</span>
@@ -1612,7 +1655,7 @@ export default function AdminPage() {
                   </div>
                 )}
                 <div className={`${cardBg} rounded-2xl overflow-hidden shadow-sm`}>
-                  <div className="px-6 py-4 border-b border-slate-800/20 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="px-4 sm:px-6 py-4 border-b border-slate-800/20 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div>
                       <h3 className="text-sm font-bold">Gestión de Clientes Registrados</h3>
                       <p className={`text-xs ${subText}`}>Perfiles de clientes registrados en Supabase</p>
@@ -1626,7 +1669,7 @@ export default function AdminPage() {
                     </button>
                   </div>
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs">
+                    <table className="admin-responsive-table w-full text-left text-xs">
                       <thead className={`${tableHeaderBg} uppercase tracking-wider border-b border-slate-800/20 text-[10px]`}>
                         <tr>
                           <th className="px-6 py-3">Cliente</th>
@@ -1638,17 +1681,24 @@ export default function AdminPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-800/20">
-                        {clientsList.map((client) => (
+                        {clientsList.length === 0 ? (
+                          <tr>
+                            <td data-label="" colSpan={6} className={`px-4 py-10 text-center ${subText}`}>
+                              <Users className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                              <span className="block font-semibold">Aún no hay clientes registrados.</span>
+                            </td>
+                          </tr>
+                        ) : clientsList.map((client) => (
                           <tr key={client.id || client.email} className="hover:bg-[#437579]/10 transition-colors">
-                            <td className="px-6 py-4 font-bold">{client.name}</td>
-                            <td className="px-6 py-4 text-emerald-600 font-mono font-bold">{client.phone || '935240485'}</td>
-                            <td className="px-6 py-4">{client.email}</td>
-                            <td className="px-6 py-4">
+                            <td data-label="Cliente" className="px-6 py-4 font-bold">{client.name}</td>
+                            <td data-label="WhatsApp" className="px-6 py-4 text-emerald-600 font-mono font-bold">{client.phone || '935240485'}</td>
+                            <td data-label="Correo" className="px-6 py-4 break-all">{client.email}</td>
+                            <td data-label="Rol" className="px-6 py-4">
                               <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-teal-500/20 text-teal-600 border border-teal-500/30">
                                 Cliente
                               </span>
                             </td>
-                            <td className="px-6 py-4">
+                            <td data-label="Contacto" className="px-6 py-4">
                               <a
                                 href={`https://wa.me/51${client.phone || '935240485'}`}
                                 target="_blank"
@@ -1659,7 +1709,7 @@ export default function AdminPage() {
                                 <span>WhatsApp</span>
                               </a>
                             </td>
-                            <td className="px-6 py-4 text-right">
+                            <td data-label="Acciones" className="px-6 py-4 text-right">
                               <div className="flex items-center justify-end space-x-1">
                                 <button
                                   onClick={() => setEditingUser(client)}
@@ -1695,7 +1745,7 @@ export default function AdminPage() {
                   </div>
                 )}
                 <div className={`${cardBg} rounded-2xl overflow-hidden shadow-sm`}>
-                  <div className="px-6 py-4 border-b border-slate-800/20 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="px-4 sm:px-6 py-4 border-b border-slate-800/20 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div>
                       <h3 className="text-sm font-bold">Gestión de Usuarios & Roles en Supabase</h3>
                     </div>
@@ -1708,7 +1758,7 @@ export default function AdminPage() {
                     </button>
                   </div>
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs">
+                    <table className="admin-responsive-table w-full text-left text-xs">
                       <thead className={`${tableHeaderBg} uppercase tracking-wider border-b border-slate-800/20 text-[10px]`}>
                         <tr>
                           <th className="px-6 py-3">Nombre</th>
@@ -1723,9 +1773,9 @@ export default function AdminPage() {
                           const isAdminUser = usr.email === 'josemanuelcarrascomillan@gmail.com';
                           return (
                             <tr key={usr.id || usr.email} className="hover:bg-[#437579]/10 transition-colors">
-                              <td className="px-6 py-4 font-bold">{usr.name}</td>
-                              <td className="px-6 py-4">{usr.email}</td>
-                              <td className="px-6 py-4">
+                              <td data-label="Usuario" className="px-6 py-4 font-bold">{usr.name}</td>
+                              <td data-label="Correo" className="px-6 py-4 break-all">{usr.email}</td>
+                              <td data-label="Rol" className="px-6 py-4">
                                 {usr.role === 'admin' ? (
                                   <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-600 border border-emerald-500/30 flex items-center gap-1 w-max">
                                     <ShieldCheck className="w-3 h-3 text-emerald-600" />
@@ -1737,7 +1787,7 @@ export default function AdminPage() {
                                   </span>
                                 )}
                               </td>
-                              <td className="px-6 py-4">
+                              <td data-label="Permisos" className="px-6 py-4">
                                 {isAdminUser ? (
                                   <span className="text-[10px] text-emerald-600 font-bold italic">
                                     Admin Principal
@@ -1752,7 +1802,7 @@ export default function AdminPage() {
                                   </button>
                                 )}
                               </td>
-                              <td className="px-6 py-4 text-right">
+                              <td data-label="Acciones" className="px-6 py-4 text-right">
                                 <div className="flex items-center justify-end space-x-1">
                                   <button
                                     onClick={() => setEditingUser(usr)}
@@ -1788,8 +1838,8 @@ export default function AdminPage() {
 
       {/* Modal Crear Usuario / Cliente */}
       {creatingUser && (
-        <div className="fixed inset-0 z-60 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className={`${isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-[#B2CFCF] text-[#162C2E]'} border rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto`}>
+        <div className="fixed inset-0 z-60 bg-black/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4">
+          <div className={`${isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-[#B2CFCF] text-[#162C2E]'} border rounded-2xl sm:rounded-3xl max-w-md w-full p-4 sm:p-6 space-y-4 shadow-2xl max-h-[94dvh] overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}>
 
             <div className="flex items-center justify-between border-b border-slate-800/20 pb-3">
               <h3 className="font-bold text-base">
@@ -1800,6 +1850,7 @@ export default function AdminPage() {
                   setCreatingUser(null);
                   setUserCreateError('');
                 }}
+                aria-label="Cerrar formulario de usuario"
                 className="text-slate-400 hover:text-rose-500"
               >
                 <X className="w-5 h-5" />
@@ -1908,7 +1959,7 @@ export default function AdminPage() {
                 </label>
               </div>
 
-              <div className="pt-3 flex justify-end space-x-2 border-t border-slate-800/20">
+              <div className="pt-3 flex flex-col-reverse min-[420px]:flex-row items-stretch min-[420px]:justify-end gap-2 border-t border-slate-800/20">
                 <button
                   type="button"
                   onClick={() => {
@@ -1935,12 +1986,12 @@ export default function AdminPage() {
 
       {/* Modal Editar Información de Usuario / Cliente con Floating Labels */}
       {editingUser && (
-        <div className="fixed inset-0 z-60 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className={`${isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-[#B2CFCF] text-[#162C2E]'} border rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl`}>
+        <div className="fixed inset-0 z-60 bg-black/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4">
+          <div className={`${isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-[#B2CFCF] text-[#162C2E]'} border rounded-2xl sm:rounded-3xl max-w-md w-full p-4 sm:p-6 space-y-4 shadow-2xl max-h-[94dvh] overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}>
 
             <div className="flex items-center justify-between border-b border-slate-800/20 pb-3">
               <h3 className="font-bold text-base">Editar Información del Usuario</h3>
-              <button onClick={() => setEditingUser(null)} className="text-slate-400 hover:text-rose-500">
+              <button onClick={() => setEditingUser(null)} className="text-slate-400 hover:text-rose-500" aria-label="Cerrar formulario de edicion">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -2000,7 +2051,7 @@ export default function AdminPage() {
                 </label>
               </div>
 
-              <div className="pt-3 flex justify-end space-x-2 border-t border-slate-800/20">
+              <div className="pt-3 flex flex-col-reverse min-[420px]:flex-row items-stretch min-[420px]:justify-end gap-2 border-t border-slate-800/20">
                 <button
                   type="button"
                   onClick={() => setEditingUser(null)}
@@ -2023,14 +2074,14 @@ export default function AdminPage() {
 
       {/* Modal Crear/Editar Producto con Floating Labels */}
       {isEditingProduct && (
-        <div className="fixed inset-0 z-60 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className={`${isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-[#B2CFCF] text-[#162C2E]'} border rounded-3xl max-w-2xl w-full p-6 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto`}>
+        <div className="fixed inset-0 z-60 bg-black/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4">
+          <div className={`${isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-[#B2CFCF] text-[#162C2E]'} border rounded-2xl sm:rounded-3xl max-w-2xl w-full p-4 sm:p-6 space-y-4 shadow-2xl max-h-[94dvh] overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}>
 
             <div className="flex items-center justify-between border-b border-slate-800/20 pb-3">
               <h3 className="font-bold text-base">
                 {currentProduct.id ? 'Editar Producto' : 'Crear Nuevo Producto'}
               </h3>
-              <button onClick={() => setIsEditingProduct(false)} className="text-slate-400 hover:text-rose-500">
+              <button onClick={() => setIsEditingProduct(false)} className="text-slate-400 hover:text-rose-500" aria-label="Cerrar formulario de producto">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -2038,14 +2089,14 @@ export default function AdminPage() {
             <form onSubmit={handleSaveProduct} className="space-y-4 text-xs">
 
               {/* Sección de Imagen */}
-              <div className={`space-y-3 p-4 rounded-2xl border ${isDark ? 'bg-slate-950 border-slate-800' : 'bg-[#F4F1EA] border-[#B2CFCF]'}`}>
+              <div className={`space-y-3 p-3 sm:p-4 rounded-2xl border ${isDark ? 'bg-slate-950 border-slate-800' : 'bg-[#F4F1EA] border-[#B2CFCF]'}`}>
                 <label className="block font-bold text-xs flex items-center gap-1.5">
                   <ImageIcon className="w-4 h-4 text-[#437579]" />
                   <span>Imagen del Producto</span>
                 </label>
 
-                <div className="flex flex-col sm:flex-row items-center gap-5">
-                  <div className={`relative w-36 aspect-[4/5] rounded-2xl overflow-hidden border-2 border-dashed border-[#437579] shadow-md shrink-0 flex items-center justify-center ${isDark ? 'bg-slate-900' : 'bg-white'}`}>
+                <div className="flex items-start gap-3 sm:gap-5">
+                  <div className={`relative w-24 min-[420px]:w-28 sm:w-36 aspect-[4/5] rounded-xl sm:rounded-2xl overflow-hidden border-2 border-dashed border-[#437579] shadow-md shrink-0 flex items-center justify-center ${isDark ? 'bg-slate-900' : 'bg-white'}`}>
                     {currentProduct.imageUrl ? (
                       <img
                         src={currentProduct.imageUrl}
@@ -2071,7 +2122,7 @@ export default function AdminPage() {
                     </div>
 
                     <div className="flex flex-wrap gap-2">
-                      <label className="cursor-pointer inline-flex items-center space-x-2 bg-[#437579] hover:bg-[#335C60] text-white font-bold text-xs px-4 py-2.5 rounded-xl transition-all shadow-md">
+                      <label className="cursor-pointer w-full sm:w-auto inline-flex items-center justify-center gap-1.5 bg-[#437579] hover:bg-[#335C60] text-white font-bold text-[11px] sm:text-xs px-3 sm:px-4 py-2.5 rounded-xl transition-all shadow-md text-center leading-tight">
                         <Upload className="w-4 h-4" />
                         <span>Subir Foto desde Equipo</span>
                         <input
@@ -2113,7 +2164,7 @@ export default function AdminPage() {
                 </label>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold mb-1 text-[11px]">Categoría</label>
                   <select
@@ -2178,7 +2229,7 @@ export default function AdminPage() {
                 </label>
               </div>
 
-              <div className="pt-3 flex justify-end space-x-2 border-t border-slate-800/20">
+              <div className="pt-3 flex flex-col-reverse min-[420px]:flex-row items-stretch min-[420px]:justify-end gap-2 border-t border-slate-800/20">
                 <button
                   type="button"
                   onClick={() => setIsEditingProduct(false)}
@@ -2201,20 +2252,22 @@ export default function AdminPage() {
 
       {/* Modal Crear/Editar Categoría */}
       {isEditingCategoryModal && (
-        <div className="fixed inset-0 z-60 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className={`${isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-[#B2CFCF] text-[#162C2E]'} border rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-150`}>
+        <div className="fixed inset-0 z-60 bg-black/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4">
+          <div className={`${isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-[#B2CFCF] text-[#162C2E]'} border rounded-2xl sm:rounded-3xl max-w-lg w-full max-h-[94dvh] shadow-2xl animate-in fade-in zoom-in-95 duration-150 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}>
 
-            <div className="flex items-center justify-between border-b border-slate-800/20 pb-3">
-              <h3 className="font-bold text-base flex items-center gap-2">
-                <FolderTree className="w-5 h-5 text-indigo-500" />
-                <span>{editingCatId ? 'Editar Categoría' : 'Nueva Categoría de Tejidos'}</span>
+            {/* Header con gradiente */}
+            <div className="bg-gradient-to-r from-[#437579] to-[#5A9CA0] px-4 sm:px-6 py-3.5 sm:py-4 flex items-center justify-between gap-3">
+              <h3 className="font-bold text-base text-white flex items-center gap-2">
+                <FolderTree className="w-5 h-5" />
+                <span>{editingCatId ? 'Editar Categoría' : 'Nueva Categoría'}</span>
               </h3>
-              <button onClick={handleCancelEditCategory} className="text-slate-400 hover:text-rose-500">
+              <button onClick={handleCancelEditCategory} className="text-white/70 hover:text-white hover:bg-white/20 p-1 rounded-full transition-colors" aria-label="Cerrar formulario de categoria">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveCategory} className="space-y-4 text-xs">
+            <form onSubmit={handleSaveCategory} className="p-4 sm:p-6 space-y-4 sm:space-y-5 text-xs">
+              {/* Nombre */}
               <div className="relative">
                 <input
                   type="text"
@@ -2223,46 +2276,122 @@ export default function AdminPage() {
                   value={newCatName}
                   onChange={(e) => setNewCatName(e.target.value)}
                   placeholder=" "
-                  className={`peer w-full ${inputBg} rounded-2xl px-4 pt-5 pb-2 text-xs transition-all shadow-sm`}
+                  className={`peer w-full ${inputBg} rounded-2xl px-4 pt-6 pb-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[#437579] transition-all shadow-sm`}
                 />
                 <label
                   htmlFor="catNameModal"
-                  className={`absolute left-4 top-2 text-[10px] transition-all peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-xs peer-focus:top-1.5 peer-focus:text-[10px] pointer-events-none ${floatingLabel}`}
+                  className={`absolute left-4 top-2 text-[10px] transition-all peer-placeholder-shown:top-4 peer-placeholder-shown:text-xs peer-focus:top-1.5 peer-focus:text-[10px] pointer-events-none ${floatingLabel}`}
                 >
-                  Nombre de la Categoría
+                  Nombre de la Categoría *
                 </label>
               </div>
 
+              {/* Descripción */}
               <div className="relative">
-                <input
-                  type="text"
+                <textarea
                   id="catDescModal"
+                  rows={2}
                   value={newCatDesc}
                   onChange={(e) => setNewCatDesc(e.target.value)}
                   placeholder=" "
-                  className={`peer w-full ${inputBg} rounded-2xl px-4 pt-5 pb-2 text-xs transition-all shadow-sm`}
+                  className={`peer w-full ${inputBg} rounded-2xl px-4 pt-6 pb-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#437579] transition-all shadow-sm resize-none`}
                 />
                 <label
                   htmlFor="catDescModal"
-                  className={`absolute left-4 top-2 text-[10px] transition-all peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-xs peer-focus:top-1.5 peer-focus:text-[10px] pointer-events-none ${floatingLabel}`}
+                  className={`absolute left-4 top-2 text-[10px] transition-all peer-placeholder-shown:top-4 peer-placeholder-shown:text-xs peer-focus:top-1.5 peer-focus:text-[10px] pointer-events-none ${floatingLabel}`}
                 >
                   Descripción corta (Opcional)
                 </label>
               </div>
 
-              <div className="pt-3 flex justify-end space-x-2 border-t border-slate-800/20">
+              {/* Tipo de Medida - Radio Cards */}
+              <div className="space-y-2">
+                <label className={`block text-[11px] font-bold ${isDark ? 'text-slate-400' : 'text-[#437579]'} uppercase tracking-wider`}>
+                  ¿Qué tipo de medida usa esta categoría?
+                </label>
+                <div className="grid gap-2">
+                  {/* Prendas de Vestir */}
+                  <button
+                    type="button"
+                    onClick={() => setNewCatSizeType('vestir')}
+                    className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all ${
+                      newCatSizeType === 'vestir'
+                        ? 'border-emerald-500 bg-emerald-500/10 shadow-md'
+                        : `${isDark ? 'border-slate-700 hover:border-slate-600' : 'border-[#C4D8D9] hover:border-[#437579]/50'}`
+                    }`}
+                  >
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${newCatSizeType === 'vestir' ? 'bg-emerald-500 text-white' : isDark ? 'bg-slate-800 text-slate-400' : 'bg-[#E2ECEC] text-[#597477]'}`}>
+                      👗
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-xs">Prendas de Vestir</p>
+                      <p className={`text-[10px] ${isDark ? 'text-slate-500' : 'text-[#597477]'}`}>Tallas: XS, S, M, L, XL, XXL, A Medida</p>
+                    </div>
+                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${newCatSizeType === 'vestir' ? 'border-emerald-500 bg-emerald-500' : isDark ? 'border-slate-600' : 'border-[#C4D8D9]'}`}>
+                      {newCatSizeType === 'vestir' && <Check className="w-3 h-3 text-white" />}
+                    </div>
+                  </button>
+
+                  {/* Talla Única */}
+                  <button
+                    type="button"
+                    onClick={() => setNewCatSizeType('unica')}
+                    className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all ${
+                      newCatSizeType === 'unica'
+                        ? 'border-amber-500 bg-amber-500/10 shadow-md'
+                        : `${isDark ? 'border-slate-700 hover:border-slate-600' : 'border-[#C4D8D9] hover:border-[#437579]/50'}`
+                    }`}
+                  >
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${newCatSizeType === 'unica' ? 'bg-amber-500 text-white' : isDark ? 'bg-slate-800 text-slate-400' : 'bg-[#E2ECEC] text-[#597477]'}`}>
+                      👑
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-xs">Talla Única / Estándar</p>
+                      <p className={`text-[10px] ${isDark ? 'text-slate-500' : 'text-[#597477]'}`}>Gorros, Diademas, Vinchas, Accesorios</p>
+                    </div>
+                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${newCatSizeType === 'unica' ? 'border-amber-500 bg-amber-500' : isDark ? 'border-slate-600' : 'border-[#C4D8D9]'}`}>
+                      {newCatSizeType === 'unica' && <Check className="w-3 h-3 text-white" />}
+                    </div>
+                  </button>
+
+                  {/* Dimensiones */}
+                  <button
+                    type="button"
+                    onClick={() => setNewCatSizeType('dimensiones')}
+                    className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all ${
+                      newCatSizeType === 'dimensiones'
+                        ? 'border-sky-500 bg-sky-500/10 shadow-md'
+                        : `${isDark ? 'border-slate-700 hover:border-slate-600' : 'border-[#C4D8D9] hover:border-[#437579]/50'}`
+                    }`}
+                  >
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${newCatSizeType === 'dimensiones' ? 'bg-sky-500 text-white' : isDark ? 'bg-slate-800 text-slate-400' : 'bg-[#E2ECEC] text-[#597477]'}`}>
+                      📐
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-xs">Dimensiones en Centímetros</p>
+                      <p className={`text-[10px] ${isDark ? 'text-slate-500' : 'text-[#597477]'}`}>Tapetes, Cojines, Mantas, Decoración</p>
+                    </div>
+                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${newCatSizeType === 'dimensiones' ? 'border-sky-500 bg-sky-500' : isDark ? 'border-slate-600' : 'border-[#C4D8D9]'}`}>
+                      {newCatSizeType === 'dimensiones' && <Check className="w-3 h-3 text-white" />}
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Acciones */}
+              <div className="pt-3 flex flex-col-reverse min-[420px]:flex-row items-stretch min-[420px]:justify-end gap-2 border-t border-slate-800/20">
                 <button
                   type="button"
                   onClick={handleCancelEditCategory}
-                  className={`px-4 py-2 rounded-xl font-bold ${isDark ? 'bg-slate-800 text-slate-300' : 'bg-[#DDE8E8] text-[#162C2E]'}`}
+                  className={`px-4 py-2.5 rounded-xl font-bold text-xs ${isDark ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-[#DDE8E8] text-[#162C2E] hover:bg-[#C4D8D9]'} transition-colors`}
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-[#437579] hover:bg-[#335C60] text-white rounded-xl font-bold shadow-md uppercase tracking-wider"
+                  className="px-5 py-2.5 bg-[#437579] hover:bg-[#335C60] text-white rounded-xl font-bold text-xs shadow-md transition-colors"
                 >
-                  {editingCatId ? 'Guardar Cambios' : 'Crear Categoría'}
+                  {editingCatId ? '✓ Guardar Cambios' : '+ Crear Categoría'}
                 </button>
               </div>
             </form>

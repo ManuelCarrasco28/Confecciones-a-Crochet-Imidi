@@ -85,6 +85,25 @@ export function generateWhatsAppProductLink(product: Product): string {
   return `https://wa.me/${STORE_WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`;
 }
 
+export function generateWhatsAppConfiguredProductLink(
+  product: Product,
+  selectedSize?: string,
+  selectedYarn?: string,
+  selectedColor?: string,
+  customNotes?: string
+): string {
+  let text = `¡Hola Confecciones a Crochet Imidi! 🧶\nQuisiera confeccionar a mano la siguiente prenda:\n\n`;
+  text += `*Prenda:* ${product.name}\n`;
+  text += `*Precio Referencial:* S/ ${product.price.toFixed(2)}\n`;
+  if (selectedSize) text += `• *Talla / Dimensión:* ${selectedSize}\n`;
+  if (selectedYarn) text += `• *Tipo de Hilo:* ${selectedYarn}\n`;
+  if (selectedColor) text += `• *Color elegido:* ${selectedColor}\n`;
+  if (customNotes) text += `• *Indicaciones / Medidas:* ${customNotes}\n`;
+  text += `\n¿Cuál es el tiempo estimado de confección para mi pedido? ¡Muchas gracias!`;
+
+  return `https://wa.me/${STORE_WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`;
+}
+
 export function generateWhatsAppCartLink(cart: { product: Product; quantity: number; selectedSize?: string; selectedColor?: string; selectedYarn?: string; customNotes?: string }[]): string {
   if (!cart || cart.length === 0) return `https://wa.me/${STORE_WHATSAPP_NUMBER}`;
 

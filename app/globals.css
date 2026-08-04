@@ -75,3 +75,76 @@ html, body {
 .safe-bottom {
   padding-bottom: env(safe-area-inset-bottom, 0);
 }
+
+/* Admin: las tablas se convierten en registros apilados en pantallas móviles. */
+@media (max-width: 639px) {
+  .admin-responsive-table,
+  .admin-responsive-table tbody,
+  .admin-responsive-table tr,
+  .admin-responsive-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .admin-responsive-table thead {
+    display: none;
+  }
+
+  .admin-responsive-table tbody {
+    padding: 0.5rem;
+  }
+
+  .admin-responsive-table tbody tr {
+    padding: 0.45rem 0.5rem;
+    border: 1px solid rgb(178 207 207 / 55%);
+    border-radius: 0.75rem;
+  }
+
+  .admin-responsive-table tbody tr + tr {
+    margin-top: 0.6rem;
+  }
+
+  .admin-responsive-table td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.45rem 0.35rem;
+    text-align: right;
+    border: 0;
+  }
+
+  .admin-responsive-table td::before {
+    content: attr(data-label);
+    flex: 0 0 5.5rem;
+    text-align: left;
+    color: #597477;
+    font-size: 0.625rem;
+    font-weight: 800;
+    line-height: 1.2;
+    text-transform: uppercase;
+  }
+
+  .admin-responsive-table td > * {
+    min-width: 0;
+  }
+
+  .admin-responsive-table td[data-label="Producto"],
+  .admin-responsive-table td[data-label="Descripción"],
+  .admin-responsive-table td[data-label="Correo"] {
+    align-items: flex-start;
+  }
+
+  .admin-responsive-table td[data-label="Acciones"] > div {
+    justify-content: flex-end;
+  }
+
+  .admin-responsive-table td[data-label=""] {
+    display: block;
+    text-align: center;
+  }
+
+  .admin-responsive-table td[data-label=""]::before {
+    display: none;
+  }
+}

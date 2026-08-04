@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useEffect } from 'react';
-import Link from 'next/link';
-import { ShoppingBag, CheckCircle2, ArrowRight, X } from 'lucide-react';
+import React, { useCallback, useEffect, useRef } from 'react';
+import { CheckCircle2, X } from 'lucide-react';
+import { gsap } from 'gsap';
 
 interface ToastProps {
   message: string | null;
@@ -10,49 +10,99 @@ interface ToastProps {
 }
 
 export function Toast({ message, onClose }: ToastProps) {
-  // Auto-desaparecer en 2.5 segundos
-  useEffect(() => {
-    if (!message) return;
-    const timer = setTimeout(() => {
+  const toastRef = useRef<HTMLDivElement>(null);
+  const iconRef = useRef<HTMLDivElement>(null);
+
+  const handleClose = useCallback(() => {
+    if (!toastRef.current) {
       onClose();
-    }, 2500);
-    return () => clearTimeout(timer);
-  }, [message, onClose]);
+      return;
+    }
+    gsap.to(toastRef.current, {
+      y: -20,
+      opacity: 0,
+      scale: 0.9,
+      duration: 0.25,
+      ease: 'power2.in',
+      onComplete: onClose,
+    });
+  }, [onClose]);
+
+  useEffect(() => {
+    const toast = toastRef.current;
+    const icon = iconRef.current;
+    if (!message || !toast) return;
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (!prefersReducedMotion) {
+      gsap.fromTo(
+        toast,
+        { y: -30, opacity: 0, scale: 0.9 },
+        { y: 0, opacity: 1, scale: 1, duration: 0.45, ease: 'back.out(1.7)' }
+      );
+
+      if (icon) {
+        gsap.fromTo(
+          icon,
+          { scale: 0, rotate: -45 },
+          { scale: 1, rotate: 0, duration: 0.35, delay: 0.1, ease: 'back.out(2)' }
+        );
+      }
+    }
+
+    // Auto-desaparición con animación de salida GSAP
+    const timer = setTimeout(() => {
+      handleClose();
+    }, 1800);
+
+    return () => {
+      clearTimeout(timer);
+      gsap.killTweensOf(toast);
+      if (icon) gsap.killTweensOf(icon);
+    };
+  }, [handleClose, message]);
 
   if (!message) return null;
 
+  // Extraer el nombre de la prenda limpiando la cadena
+  const cleanTitle = message
+    .replace(/^¡"/, '')
+    .replace(/" añadido a tus Encargos! 🛍️$/, '')
+    .replace(/^¡/, '')
+    .replace(/!$/, '');
+
   return (
-    <div className="fixed bottom-4 left-3 right-3 sm:left-auto sm:right-6 sm:bottom-6 z-50 animate-in fade-in slide-in-from-bottom-3 duration-200">
-      <div className="bg-white/95 backdrop-blur-md text-[#213B3E] p-3 sm:p-3.5 rounded-2xl shadow-xl border border-[#437579]/30 flex items-center space-x-2.5 sm:space-x-3 max-w-md mx-auto sm:mx-0">
+    <div
+      ref={toastRef}
+      role="status"
+      aria-live="polite"
+      className="fixed top-24 right-4 sm:right-8 z-50 pointer-events-auto"
+    >
+      <div className="bg-white text-slate-800 p-3 sm:py-3 sm:px-4 rounded-xl shadow-xl border border-slate-100 border-l-4 border-l-emerald-500 flex items-center gap-3 max-w-xs sm:max-w-sm w-full transition-transform duration-200 hover:scale-[1.02]">
         
-        <div className="w-8 h-8 rounded-full bg-[#E2ECEC] text-[#437579] flex items-center justify-center shrink-0 border border-[#437579]/20">
-          <CheckCircle2 className="w-4 h-4 text-[#437579]" />
+        {/* Icono de Éxito Verde GSAP */}
+        <div ref={iconRef} className="w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-sm">
+          <CheckCircle2 className="w-4 h-4 text-white" />
         </div>
 
+        {/* Texto Corto y Conciso */}
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-bold text-[#213B3E] truncate">{message}</p>
-          <p className="text-[10px] text-[#597477] font-medium">Añadido a tu lista de encargos</p>
+          <p className="text-xs font-bold text-slate-900 leading-tight">
+            Añadido a tus Encargos
+          </p>
+          <p className="text-[11px] text-slate-500 truncate mt-0.5 font-medium">
+            {cleanTitle}
+          </p>
         </div>
 
-        <div className="flex items-center space-x-1.5 shrink-0">
-          <Link
-            href="/encargos"
-            onClick={onClose}
-            className="inline-flex items-center space-x-1 bg-[#437579] hover:bg-[#335C60] text-white font-bold text-[11px] px-3 py-1.5 rounded-xl transition-all shadow-sm"
-          >
-            <ShoppingBag className="w-3.5 h-3.5" />
-            <span className="hidden xs:inline">Ver Encargos</span>
-            <ArrowRight className="w-3 h-3" />
-          </Link>
-
-          <button
-            onClick={onClose}
-            className="p-1 text-[#597477] hover:text-[#213B3E] transition-colors"
-            aria-label="Cerrar notificación"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+        {/* Botón de Cierre Simple */}
+        <button
+          onClick={handleClose}
+          className="p-1 text-slate-400 hover:text-slate-600 transition-colors shrink-0"
+          aria-label="Cerrar"
+        >
+          <X className="w-4 h-4" />
+        </button>
 
       </div>
     </div>

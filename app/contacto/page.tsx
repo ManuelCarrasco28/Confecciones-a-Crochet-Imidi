@@ -2,10 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { Navbar } from '@/components/Navbar';
-import { CartDrawer } from '@/components/CartDrawer';
+
 import { AuthModal } from '@/components/AuthModal';
 import { Footer } from '@/components/Footer';
-import { CartItem, UserAccount } from '@/lib/types';
+import { UserAccount } from '@/lib/types';
 import { STORE_WHATSAPP_NUMBER, STORE_FACEBOOK_URL, normalizePeruPhone, isValidFullName, isValidPeruPhone } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { MessageCircle, Phone, Mail, Clock, Send, CheckCircle2 } from 'lucide-react';
@@ -17,8 +17,6 @@ const FacebookIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
 );
 
 export default function ContactoPage() {
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const [isCartOpen, setIsCartOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [user, setUser] = useState<UserAccount | null>(null);
 
@@ -65,7 +63,7 @@ export default function ContactoPage() {
 
   const [errorMsg, setErrorMsg] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
 
@@ -99,6 +97,21 @@ export default function ContactoPage() {
       return;
     }
 
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.from('contact_requests').insert({
+        user_id: user?.id || null,
+        full_name: trimmedName,
+        email: trimmedEmail || null,
+        phone: trimmedPhone || null,
+        message: trimmedMessage,
+      });
+      if (error) throw error;
+    } catch {
+      setErrorMsg('No se pudo registrar tu mensaje. Verifica tu conexión e inténtalo nuevamente.');
+      return;
+    }
+
     let text = `¡Hola Confecciones a Crochet Imidi! 📩\nTe escribo desde el formulario de contacto:\n\n`;
     text += `• Nombre: ${trimmedName}\n`;
     if (trimmedEmail) text += `• Correo: ${trimmedEmail}\n`;
@@ -113,9 +126,8 @@ export default function ContactoPage() {
   return (
     <div className="min-h-screen bg-[#F8F5EF] text-[#213B3E] font-sans flex flex-col">
       <Navbar
-        cart={cart}
+        cart={[]}
         user={user}
-        onOpenCart={() => setIsCartOpen(true)}
         onOpenAuth={() => setIsAuthOpen(true)}
         onLogout={handleLogout}
         onSelectCategory={() => {}}
@@ -320,23 +332,6 @@ export default function ContactoPage() {
       </main>
 
       <Footer user={user} />
-
-      <CartDrawer
-        isOpen={isCartOpen}
-        onClose={() => setIsCartOpen(false)}
-        cart={cart}
-        onUpdateQuantity={(index, newQty) => {
-          if (newQty <= 0) {
-            setCart((prev) => prev.filter((_, i) => i !== index));
-          } else {
-            setCart((prev) =>
-              prev.map((item, i) => (i === index ? { ...item, quantity: newQty } : item))
-            );
-          }
-        }}
-        onRemoveItem={(index) => setCart((prev) => prev.filter((_, i) => i !== index))}
-        onClearCart={() => setCart([])}
-      />
 
       <AuthModal
         isOpen={isAuthOpen}

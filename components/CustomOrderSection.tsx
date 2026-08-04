@@ -1,12 +1,14 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Scissors, Send, CheckCircle2, Phone, AlertCircle } from 'lucide-react';
 import { CustomOrderRequest, YARN_OPTIONS, COLOR_OPTIONS } from '@/lib/types';
 import { generateWhatsAppCustomOrderLink, isValidPeruPhone, isValidFullName, normalizePeruPhone } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
+import { gsap } from '@/lib/gsap';
 
 export function CustomOrderSection() {
+  const formBoxRef = useRef<HTMLDivElement>(null);
   const [formData, setFormData] = useState<CustomOrderRequest>({
     fullName: '',
     phone: '',
@@ -23,6 +25,19 @@ export function CustomOrderSection() {
   const [acceptDataPolicy, setAcceptDataPolicy] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [submitted, setSubmitted] = useState(false);
+
+  // Animación de agitación suave (Shake) cuando hay un error
+  useEffect(() => {
+    if (errorMsg && formBoxRef.current) {
+      gsap.fromTo(
+        formBoxRef.current,
+        { x: -6 },
+        { x: 6, duration: 0.07, repeat: 3, yoyo: true, ease: 'power2.inOut', onComplete: () => {
+          gsap.set(formBoxRef.current, { x: 0 });
+        } }
+      );
+    }
+  }, [errorMsg]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -135,7 +150,7 @@ export function CustomOrderSection() {
 
           {/* Columna Derecha */}
           <div className="lg:col-span-7">
-            <div className="bg-[#F8F5EF] p-4 sm:p-8 rounded-3xl border border-[#C4D8D9] shadow-lg relative">
+            <div ref={formBoxRef} className="bg-[#F8F5EF] p-4 sm:p-8 rounded-3xl border border-[#C4D8D9] shadow-lg relative">
               
               <div className="flex items-center justify-between mb-6 pb-4 border-b border-[#C4D8D9]">
                 <div>
